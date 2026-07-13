@@ -1,0 +1,35 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ReservationsView } from "./reservations-view";
+
+export default async function ReservationsPage() {
+  const session = await getServerSession(authOptions);
+
+  const [reservations, rooms] = session?.user.hotelId
+    ? await Promise.all([
+        prisma.reservation.findMany({
+          where: { hotelId: session.user.hotelId },
+          include: { room: true },
+          orderBy: { checkIn: "asc" },
+        }),
+        prisma.room.findMany({
+          where: { hotelId: session.user.hotelId },
+          orderBy: [{ floor: "asc" }, { number: "asc" }],
+        }),
+      ])
+    : [[], []];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Reservas</h1>
+        <p className="text-sm text-muted-foreground">
+          Consulta y gestiona las reservas actuales y próximas de los huéspedes.
+        </p>
+      </div>
+
+      <ReservationsView initialReservations={reservations} rooms={rooms} />
+    </div>
+  );
+}

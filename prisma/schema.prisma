@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  HOTEL_ADMIN
+  RECEPTIONIST
+  HOUSEKEEPING
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  BLOCKED
+  CLEANING
+}
+
+enum ReservationStatus {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+  COMPLETADA
+}
+
+enum HousekeepingStatus {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADA
+}
+
+enum InvoiceStatus {
+  PENDIENTE
+  PAGADA
+  CANCELADA
+}
+
+model Hotel {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users             User[]
+  rooms             Room[]
+  reservations      Reservation[]
+  housekeepingTasks HousekeepingTask[]
+  invoices          Invoice[]
+  hotelModules      HotelModule[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(RECEPTIONIST)
+
+  hotelId String?
+  hotel   Hotel?  @relation(fields: [hotelId], references: [id])
+
+  @@index([hotelId])
+}
+
+model Room {
+  id     String     @id @default(cuid())
+  number String
+  floor  Int
+  type   String
+  status RoomStatus @default(AVAILABLE)
+  notes  String?
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  reservations     Reservation[]
+  housekeepingTask HousekeepingTask?
+
+  @@unique([hotelId, number])
+  @@index([hotelId])
+}
+
+model HousekeepingTask {
+  id        String             @id @default(cuid())
+  status    HousekeepingStatus @default(PENDIENTE)
+  priority  Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  roomId String @unique
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  @@index([hotelId])
+}
+
+model Reservation {
+  id        String            @id @default(cuid())
+  guestName String
+  dni       String
+  checkIn   DateTime
+  checkOut  DateTime
+  status    ReservationStatus @default(PENDIENTE)
+  createdAt DateTime          @default(now())
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  invoices Invoice[]
+
+  @@index([hotelId])
+  @@index([roomId])
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  amount    Float
+  status    InvoiceStatus @default(PENDIENTE)
+  createdAt DateTime      @default(now())
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+
+  @@index([hotelId])
+  @@index([reservationId])
+}
+
+model Module {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  icon        String?
+
+  hotelModules HotelModule[]
+}
+
+model HotelModule {
+  hotelId  String
+  moduleId String
+  enabled  Boolean @default(true)
+
+  hotel  Hotel  @relation(fields: [hotelId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
+
+  @@id([hotelId, moduleId])
+  @@index([moduleId])
+}
