@@ -40,6 +40,7 @@ import {
 import { formatDate } from "@/lib/format-date";
 import {
   BED_ARRANGEMENTS,
+  bedArrangementCapacity,
   formatBedArrangement,
 } from "@/lib/bed-arrangement";
 
@@ -206,7 +207,7 @@ export function GroupsView({
       Array.from({ length: cantidad }, () => ({
         nombre: "",
         dni: "",
-        roomId: selectedRoomIds[0] ?? "",
+        roomId: "",
         esFree: false,
       }))
     );
@@ -222,12 +223,34 @@ export function GroupsView({
   function addMemberRow() {
     setMembers((prev) => [
       ...prev,
-      { nombre: "", dni: "", roomId: selectedRoomIds[0] ?? "", esFree: false },
+      { nombre: "", dni: "", roomId: "", esFree: false },
     ]);
   }
 
   function removeMemberRow(index: number) {
     setMembers((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function autoAssignRooms() {
+    const roomIdSequence: string[] = [];
+    for (const room of selectedRooms) {
+      const capacity = bedArrangementCapacity(
+        roomArrangements[room.id] ?? "SIMPLE"
+      );
+      for (let slot = 0; slot < capacity; slot++) {
+        roomIdSequence.push(room.id);
+      }
+    }
+
+    let cursor = 0;
+    setMembers((prev) =>
+      prev.map((member) => {
+        if (!member.nombre.trim() || !member.dni.trim()) return member;
+        const roomId = roomIdSequence[cursor] ?? "";
+        cursor++;
+        return { ...member, roomId };
+      })
+    );
   }
 
   async function handleConfirm() {
@@ -280,6 +303,38 @@ export function GroupsView({
       setIsSaving(false);
     }
   }
+
+  const loadedMembers = members.filter(
+    (member) => member.nombre.trim() && member.dni.trim()
+  );
+  const totalLoaded = loadedMembers.length;
+  const assignedCount = loadedMembers.filter((member) => member.roomId).length;
+  const missingCount = Math.max(totalLoaded - assignedCount, 0);
+
+  const totalCapacity = selectedRooms.reduce(
+    (sum, room) =>
+      sum + bedArrangementCapacity(roomArrangements[room.id] ?? "SIMPLE"),
+    0
+  );
+  const capacityShortfall = Math.max(totalLoaded - totalCapacity, 0);
+
+  const roomOccupancy = new Map<string, number>();
+  for (const member of members) {
+    if (!member.roomId) continue;
+    roomOccupancy.set(
+      member.roomId,
+      (roomOccupancy.get(member.roomId) ?? 0) + 1
+    );
+  }
+  const roomsWithSpace = selectedRooms
+    .map((room) => {
+      const capacity = bedArrangementCapacity(
+        roomArrangements[room.id] ?? "SIMPLE"
+      );
+      const occupied = roomOccupancy.get(room.id) ?? 0;
+      return { room, remaining: capacity - occupied };
+    })
+    .filter((entry) => entry.remaining > 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -396,7 +451,11 @@ export function GroupsView({
                                   }
                                 >
                                   <SelectTrigger className="h-7 w-full text-xs">
-                                    <SelectValue />
+                                    <SelectValue>
+                                      {(value: BedArrangement | null) =>
+                                        value ? formatBedArrangement(value) : ""
+                                      }
+                                    </SelectValue>
                                   </SelectTrigger>
                                   <SelectContent>
                                     {BED_ARRANGEMENTS.map((value) => (
@@ -419,6 +478,44 @@ export function GroupsView({
 
             {step === 3 ? (
               <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="font-medium">
+                    {assignedCount} de {totalLoaded} personas asignadas —
+                    faltan {missingCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={autoAssignRooms}
+                  >
+                    Asignar automáticamente
+                  </Button>
+                </div>
+
+                {capacityShortfall > 0 ? (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  >
+                    Capacidad insuficiente: faltan {capacityShortfall}{" "}
+                    habitaciones
+                  </p>
+                ) : null}
+
+                {roomsWithSpace.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {roomsWithSpace.map(({ room, remaining }) => (
+                      <span
+                        key={room.id}
+                        className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                      >
+                        Hab. {room.number} · Lugar disponible ({remaining})
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
                 {members.map((member, index) => (
                   <div
                     key={index}
@@ -453,7 +550,14 @@ export function GroupsView({
                         }
                       >
                         <SelectTrigger className="h-8 w-full text-xs">
-                          <SelectValue placeholder="Habitación" />
+                          <SelectValue>
+                            {(value: string | null) => {
+                              const room = selectedRooms.find(
+                                (candidate) => candidate.id === value
+                              );
+                              return room ? `Hab. ${room.number}` : "Habitación";
+                            }}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {selectedRooms.map((room) => (

@@ -393,7 +393,16 @@ export function ReservationsView({
                     onValueChange={(value) => setRoomId(value ?? "")}
                   >
                     <SelectTrigger id="roomId" className="w-full">
-                      <SelectValue placeholder="Selecciona una habitación" />
+                      <SelectValue placeholder="Selecciona una habitación">
+                        {(value: string | null) => {
+                          const room = rooms.find(
+                            (candidate) => candidate.id === value
+                          );
+                          return room
+                            ? `Habitación ${room.number} · ${room.type}`
+                            : "Selecciona una habitación";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {rooms.map((room) => (
