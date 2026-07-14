@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Cron jobs
+
+`vercel.json` schedules a daily Vercel Cron Job that hits `GET /api/cron/reset-limpieza` at `08:00 UTC` (05:00 Argentina time) to reset the day's housekeeping tasks for every hotel/room to "Por limpiar".
+
+The endpoint checks for `Authorization: Bearer ${CRON_SECRET}`. Locally this comes from `.env.local` (`CRON_SECRET=protel-cron-2024`). **In Vercel, add the same `CRON_SECRET` environment variable in Project Settings → Environment Variables** — Vercel automatically sends it as the `Authorization` header on scheduled cron invocations, so no extra configuration is needed beyond setting the variable.

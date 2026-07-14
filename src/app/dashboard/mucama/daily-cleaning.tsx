@@ -6,7 +6,6 @@ import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/cli
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -39,9 +38,6 @@ export function DailyCleaning({
   const [rooms, setRooms] = useState(initialRooms);
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [reasonDrafts, setReasonDrafts] = useState<Record<string, string>>(
-    {}
-  );
   const [notesDrafts, setNotesDrafts] = useState<Record<string, string>>({});
 
   const filteredRooms = useMemo(() => {
@@ -52,7 +48,7 @@ export function DailyCleaning({
 
   const allCleaned =
     rooms.length > 0 &&
-    rooms.every((room) => room.housekeepingTask?.status === "COMPLETADA");
+    rooms.every((room) => room.housekeepingTask?.limpiadaHoy === true);
 
   function applyUpdate(roomId: string, task: HousekeepingTask) {
     setRooms((prev) =>
@@ -64,7 +60,11 @@ export function DailyCleaning({
 
   async function saveTask(
     roomId: string,
-    body: { status?: string; reason?: string | null; notes?: string | null }
+    body: {
+      status?: string;
+      limpiadaHoy?: boolean;
+      notes?: string | null;
+    }
   ) {
     setSavingId(roomId);
     try {
@@ -83,17 +83,22 @@ export function DailyCleaning({
     }
   }
 
-  function handleToggleCleaned(room: RoomWithDaily, checked: boolean) {
-    saveTask(room.id, {
-      status: checked ? "COMPLETADA" : "PENDIENTE",
-      reason: checked ? null : (room.housekeepingTask?.reason ?? null),
-    });
-  }
-
-  function handleReasonBlur(roomId: string) {
-    const reason = reasonDrafts[roomId];
-    if (reason === undefined) return;
-    saveTask(roomId, { reason });
+  function handleToggle(room: RoomWithDaily) {
+    const cleaned = room.housekeepingTask?.limpiadaHoy === true;
+    if (cleaned) {
+      saveTask(room.id, { limpiadaHoy: false, status: "PENDIENTE" });
+    } else {
+      saveTask(room.id, {
+        limpiadaHoy: true,
+        status: "COMPLETADA",
+        notes: null,
+      });
+      setNotesDrafts((prev) => {
+        const next = { ...prev };
+        delete next[room.id];
+        return next;
+      });
+    }
   }
 
   function handleNotesBlur(roomId: string) {
@@ -139,18 +144,17 @@ export function DailyCleaning({
             <TableHeader>
               <TableRow>
                 <TableHead>N° Hab.</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead>Estado hab.</TableHead>
                 <TableHead>Huésped</TableHead>
-                <TableHead>Notas especiales</TableHead>
-                <TableHead>Limpiada</TableHead>
-                <TableHead>Motivo (si no se limpió)</TableHead>
+                <TableHead>Limpieza</TableHead>
+                <TableHead>Motivo (si está por limpiar)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRooms.map((room) => {
-                const cleaned = room.housekeepingTask?.status === "COMPLETADA";
-                const reasonValue =
-                  reasonDrafts[room.id] ?? room.housekeepingTask?.reason ?? "";
+                const cleaned = room.housekeepingTask?.limpiadaHoy === true;
+                const notesValue =
+                  notesDrafts[room.id] ?? room.housekeepingTask?.notes ?? "";
                 return (
                   <TableRow key={room.id}>
                     <TableCell className="font-medium">
@@ -180,31 +184,19 @@ export function DailyCleaning({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Input
-                        className="h-8 min-w-48"
-                        placeholder="Notas de limpieza…"
-                        value={
-                          notesDrafts[room.id] ??
-                          room.housekeepingTask?.notes ??
-                          ""
+                      <Button
+                        size="sm"
+                        variant={cleaned ? "outline" : "destructive"}
+                        className={
+                          cleaned
+                            ? "border-green-600/30 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
+                            : undefined
                         }
-                        onChange={(event) =>
-                          setNotesDrafts((prev) => ({
-                            ...prev,
-                            [room.id]: event.target.value,
-                          }))
-                        }
-                        onBlur={() => handleNotesBlur(room.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Checkbox
-                        checked={cleaned}
                         disabled={savingId === room.id}
-                        onCheckedChange={(checked) =>
-                          handleToggleCleaned(room, checked === true)
-                        }
-                      />
+                        onClick={() => handleToggle(room)}
+                      >
+                        {cleaned ? "Limpia" : "Por limpiar"}
+                      </Button>
                     </TableCell>
                     <TableCell>
                       {cleaned ? (
@@ -213,14 +205,14 @@ export function DailyCleaning({
                         <Input
                           className="h-8 min-w-48"
                           placeholder="No quiso limpieza, Do not disturb, En mantenimiento…"
-                          value={reasonValue}
+                          value={notesValue}
                           onChange={(event) =>
-                            setReasonDrafts((prev) => ({
+                            setNotesDrafts((prev) => ({
                               ...prev,
                               [room.id]: event.target.value,
                             }))
                           }
-                          onBlur={() => handleReasonBlur(room.id)}
+                          onBlur={() => handleNotesBlur(room.id)}
                         />
                       )}
                     </TableCell>

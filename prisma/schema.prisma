@@ -106,13 +106,14 @@ model Room {
 }
 
 model HousekeepingTask {
-  id        String             @id @default(cuid())
-  status    HousekeepingStatus @default(PENDIENTE)
-  priority  Boolean            @default(false)
-  notes     String?
-  reason    String?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id          String             @id @default(cuid())
+  status      HousekeepingStatus @default(PENDIENTE)
+  limpiadaHoy Boolean            @default(false)
+  priority    Boolean            @default(false)
+  notes       String?
+  reason      String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])

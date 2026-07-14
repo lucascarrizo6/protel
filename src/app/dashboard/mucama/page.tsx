@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { HousekeepingRoomCard } from "./housekeeping-room-card";
 import { DailyCleaning } from "./daily-cleaning";
 
 export default async function MucamaPage() {
@@ -55,15 +54,7 @@ export default async function MucamaPage() {
           </CardHeader>
         </Card>
       ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:hidden">
-            {rooms.map((room) => (
-              <HousekeepingRoomCard key={room.id} room={room} />
-            ))}
-          </div>
-
-          <DailyCleaning initialRooms={roomsWithDaily} />
-        </>
+        <DailyCleaning initialRooms={roomsWithDaily} />
       )}
     </div>
   );

@@ -42,6 +42,10 @@ export async function PATCH(
   const status = (body?.status as HousekeepingStatus | undefined) ??
     room.housekeepingTask?.status ??
     "PENDIENTE";
+  const limpiadaHoy =
+    typeof body?.limpiadaHoy === "boolean"
+      ? body.limpiadaHoy
+      : (room.housekeepingTask?.limpiadaHoy ?? false);
   const priority =
     typeof body?.priority === "boolean"
       ? body.priority
@@ -57,9 +61,10 @@ export async function PATCH(
 
   const task = await prisma.housekeepingTask.upsert({
     where: { roomId: params.id },
-    update: { status, priority, notes, reason },
+    update: { status, limpiadaHoy, priority, notes, reason },
     create: {
       status,
+      limpiadaHoy,
       priority,
       notes,
       reason,

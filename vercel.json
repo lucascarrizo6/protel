@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reset-limpieza",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}
