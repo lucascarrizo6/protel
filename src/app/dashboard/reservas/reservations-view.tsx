@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import type {
   GroupMember,
@@ -79,6 +80,7 @@ export function ReservationsView({
   initialReservations: ReservationWithRoom[];
   rooms: Room[];
 }) {
+  const router = useRouter();
   const [reservations, setReservations] = useState(initialReservations);
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -190,6 +192,7 @@ export function ReservationsView({
       }
 
       updateReservation(data as ReservationWithRoom);
+      router.refresh();
     } catch (err) {
       setActionErrorId(reservation.id);
       setActionError(
@@ -218,6 +221,7 @@ export function ReservationsView({
 
       const updated = data as ReservationWithRoom;
       updateReservation(updated);
+      router.refresh();
 
       const nights = nightsBetween(
         new Date(updated.checkIn),
@@ -522,6 +526,7 @@ export function ReservationsView({
                             <Button
                               size="sm"
                               variant="outline"
+                              className="border-green-600/30 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
                               disabled={isPending}
                               onClick={() => handleCheckIn(reservation)}
                             >
@@ -531,7 +536,7 @@ export function ReservationsView({
                           {reservation.status === "CONFIRMADA" ? (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="destructive"
                               disabled={isPending}
                               onClick={() => handleCheckOut(reservation)}
                             >

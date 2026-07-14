@@ -29,7 +29,6 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
 
   const [open, setOpen] = useState(false);
   const [number, setNumber] = useState("");
-  const [floor, setFloor] = useState("");
   const [type, setType] = useState("");
   const [capacity, setCapacity] = useState("2");
   const [pricePerNight, setPricePerNight] = useState("");
@@ -44,7 +43,6 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
 
   function resetForm() {
     setNumber("");
-    setFloor("");
     setType("");
     setCapacity("2");
     setPricePerNight("");
@@ -73,7 +71,6 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           number,
-          floor: Number(floor),
           type,
           capacity: Number(capacity),
           pricePerNight: Number(pricePerNight),
@@ -130,26 +127,14 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
               </DialogHeader>
 
               <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="number">Número</Label>
-                    <Input
-                      id="number"
-                      required
-                      value={number}
-                      onChange={(event) => setNumber(event.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="floor">Piso</Label>
-                    <Input
-                      id="floor"
-                      type="number"
-                      required
-                      value={floor}
-                      onChange={(event) => setFloor(event.target.value)}
-                    />
-                  </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="number">Número</Label>
+                  <Input
+                    id="number"
+                    required
+                    value={number}
+                    onChange={(event) => setNumber(event.target.value)}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1.5">

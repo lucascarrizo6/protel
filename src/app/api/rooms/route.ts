@@ -14,14 +14,12 @@ export async function POST(request: NextRequest) {
 
   const number = typeof body?.number === "string" ? body.number.trim() : "";
   const type = typeof body?.type === "string" ? body.type.trim() : "";
-  const floor = Number(body?.floor);
   const capacity = Number(body?.capacity);
   const pricePerNight = Number(body?.pricePerNight);
 
   if (
     !number ||
     !type ||
-    !Number.isFinite(floor) ||
     !Number.isInteger(capacity) ||
     capacity <= 0 ||
     !Number.isFinite(pricePerNight) ||
@@ -48,7 +46,7 @@ export async function POST(request: NextRequest) {
     data: {
       number,
       type,
-      floor,
+      floor: 0,
       capacity,
       pricePerNight,
       hotelId: session.user.hotelId,
