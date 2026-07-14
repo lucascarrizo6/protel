@@ -31,6 +31,7 @@ const ROOM_STATUS_ORDER: RoomStatus[] = [
   "OCCUPIED",
   "CLEANING",
   "BLOCKED",
+  "MANTENIMIENTO",
 ];
 
 export default async function ReportesPage() {

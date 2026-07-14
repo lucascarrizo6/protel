@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       roomId,
       hotelId: session.user.hotelId,
     },
-    include: { room: true },
+    include: { room: true, groupMember: true },
   });
 
   return NextResponse.json(reservation);

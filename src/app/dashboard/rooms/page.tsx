@@ -1,13 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { RoomCard } from "./room-card";
+import { RoomsView } from "./rooms-view";
 
 export default async function RoomsPage() {
   const session = await getServerSession(authOptions);
@@ -28,22 +22,7 @@ export default async function RoomsPage() {
         </p>
       </div>
 
-      {rooms.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Aún no hay habitaciones</CardTitle>
-            <CardDescription>
-              Las habitaciones de tu hotel aparecerán aquí una vez que se agreguen.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </div>
-      )}
+      <RoomsView initialRooms={rooms} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   Receipt,
   Sparkles,
   Users,
+  UsersRound,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,6 +32,12 @@ const navItems = [
     href: "/dashboard/reservas",
     icon: CalendarCheck,
     moduleSlug: "reservas",
+  },
+  {
+    title: "Grupos",
+    href: "/dashboard/grupos",
+    icon: UsersRound,
+    moduleSlug: "grupos",
   },
   {
     title: "Mucama",

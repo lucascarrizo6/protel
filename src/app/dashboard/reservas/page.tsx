@@ -10,7 +10,7 @@ export default async function ReservationsPage() {
     ? await Promise.all([
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId },
-          include: { room: true },
+          include: { room: true, groupMember: true },
           orderBy: { checkIn: "asc" },
         }),
         prisma.room.findMany({

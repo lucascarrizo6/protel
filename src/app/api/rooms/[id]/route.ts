@@ -41,3 +41,31 @@ export async function PATCH(
 
   return NextResponse.json(updatedRoom);
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user.hotelId) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
+  const room = await prisma.room.findUnique({ where: { id: params.id } });
+
+  if (!room || room.hotelId !== session.user.hotelId) {
+    return NextResponse.json({ error: "Habitación no encontrada." }, { status: 404 });
+  }
+
+  if (room.status !== "AVAILABLE") {
+    return NextResponse.json(
+      { error: "Solo se pueden eliminar habitaciones disponibles." },
+      { status: 409 }
+    );
+  }
+
+  await prisma.room.delete({ where: { id: params.id } });
+
+  return NextResponse.json({ ok: true });
+}

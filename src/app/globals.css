@@ -51,6 +51,7 @@
     --status-occupied: #dc2626;
     --status-cleaning: #2563eb;
     --status-blocked: #ca8a04;
+    --status-maintenance: #a3266b;
     --series-invoiced: #2a78d6;
     --series-paid: #1baf7a;
   }
@@ -90,6 +91,7 @@
     --status-occupied: #ef4444;
     --status-cleaning: #3b82f6;
     --status-blocked: #d97706;
+    --status-maintenance: #d55181;
     --series-invoiced: #3987e5;
     --series-paid: #199e70;
   }
@@ -101,5 +103,12 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
   }
 }

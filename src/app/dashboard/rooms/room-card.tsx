@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, StickyNote, Trash2 } from "lucide-react";
 import type { Room } from "@/generated/prisma/client";
 import type { RoomStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -31,19 +37,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCurrency } from "@/lib/format-currency";
 import {
   ROOM_STATUSES,
   formatRoomStatus,
   roomStatusBadgeClassName,
 } from "@/lib/room-status";
 
-export function RoomCard({ room: initialRoom }: { room: Room }) {
+export function RoomCard({
+  room: initialRoom,
+  onDeleted,
+}: {
+  room: Room;
+  onDeleted: (roomId: string) => void;
+}) {
   const [room, setRoom] = useState(initialRoom);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RoomStatus>(room.status);
   const [notes, setNotes] = useState(room.notes ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const isMaintenance = room.status === "MANTENIMIENTO";
+  const canDelete = room.status === "AVAILABLE";
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen);
@@ -79,27 +99,78 @@ export function RoomCard({ room: initialRoom }: { room: Room }) {
     }
   }
 
+  async function handleDelete() {
+    setDeleteError(null);
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/rooms/${room.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo eliminar la habitación.");
+      }
+
+      onDeleted(room.id);
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo eliminar la habitación. Inténtalo de nuevo."
+      );
+      setIsDeleting(false);
+    }
+  }
+
   return (
-    <Card>
+    <Card className={isMaintenance ? "ring-1 ring-red-500/60" : undefined}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl">Habitación {room.number}</CardTitle>
+            <CardTitle className="flex items-center gap-1.5 text-xl">
+              Habitación {room.number}
+              {isMaintenance ? (
+                <AlertTriangle
+                  className="size-4 text-red-600 dark:text-red-400"
+                  aria-label="En mantenimiento"
+                />
+              ) : null}
+            </CardTitle>
             <CardDescription>
-              Piso {room.floor} · {room.type}
+              Piso {room.floor} · {room.type} · {room.capacity}{" "}
+              {room.capacity === 1 ? "persona" : "personas"}
             </CardDescription>
           </div>
-          <Badge className={roomStatusBadgeClassName(room.status)}>
-            {formatRoomStatus(room.status)}
-          </Badge>
+          <div className="flex items-start gap-1.5">
+            {room.notes ? (
+              <Popover>
+                <PopoverTrigger
+                  render={<Button variant="ghost" size="icon-sm" />}
+                >
+                  <StickyNote className="size-4 text-amber-600 dark:text-amber-400" />
+                  <span className="sr-only">Ver nota</span>
+                </PopoverTrigger>
+                <PopoverContent className="w-64">
+                  <p className="text-sm">{room.notes}</p>
+                </PopoverContent>
+              </Popover>
+            ) : null}
+            <Badge className={roomStatusBadgeClassName(room.status)}>
+              {formatRoomStatus(room.status)}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <p className="min-h-10 text-sm text-muted-foreground">
-          {room.notes || "Sin notas."}
+        <p className="text-sm font-medium">
+          {formatCurrency(room.pricePerNight)}{" "}
+          <span className="font-normal text-muted-foreground">/ noche</span>
         </p>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-wrap gap-2">
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger render={<Button variant="outline" size="sm" />}>
             Editar estado y notas
@@ -167,6 +238,51 @@ export function RoomCard({ room: initialRoom }: { room: Room }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {canDelete ? (
+          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <DialogTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" className="ml-auto" />
+              }
+            >
+              <Trash2 className="size-4 text-destructive" />
+              <span className="sr-only">Eliminar habitación</span>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Eliminar habitación {room.number}</DialogTitle>
+                <DialogDescription>
+                  Esta acción no se puede deshacer. ¿Confirmas que quieres
+                  eliminar esta habitación?
+                </DialogDescription>
+              </DialogHeader>
+
+              {deleteError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {deleteError}
+                </p>
+              ) : null}
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Eliminando…" : "Eliminar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardFooter>
     </Card>
   );

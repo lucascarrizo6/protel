@@ -180,7 +180,7 @@ export function CalculatorButton() {
         render={
           <Button
             size="icon"
-            className="fixed left-6 bottom-6 z-40 size-12 rounded-full shadow-lg"
+            className="fixed left-6 bottom-6 z-40 size-12 rounded-full shadow-lg print:hidden"
           />
         }
       >

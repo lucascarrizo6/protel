@@ -14,6 +14,7 @@ const STATUS_VAR: Record<RoomStatus, string> = {
   OCCUPIED: "var(--status-occupied)",
   CLEANING: "var(--status-cleaning)",
   BLOCKED: "var(--status-blocked)",
+  MANTENIMIENTO: "var(--status-maintenance)",
 };
 
 export function OccupancyChart({

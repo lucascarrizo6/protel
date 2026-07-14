@@ -5,6 +5,7 @@ export const ROOM_STATUSES = [
   "OCCUPIED",
   "BLOCKED",
   "CLEANING",
+  "MANTENIMIENTO",
 ] as const satisfies readonly RoomStatus[];
 
 const ROOM_STATUS_LABELS: Record<RoomStatus, string> = {
@@ -12,6 +13,7 @@ const ROOM_STATUS_LABELS: Record<RoomStatus, string> = {
   OCCUPIED: "Ocupada",
   BLOCKED: "Bloqueada",
   CLEANING: "Limpieza",
+  MANTENIMIENTO: "Mantenimiento",
 };
 
 const ROOM_STATUS_BADGE_CLASSES: Record<RoomStatus, string> = {
@@ -23,6 +25,8 @@ const ROOM_STATUS_BADGE_CLASSES: Record<RoomStatus, string> = {
     "border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-400",
   CLEANING:
     "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400",
+  MANTENIMIENTO:
+    "border-transparent bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400",
 };
 
 export function formatRoomStatus(status: RoomStatus): string {

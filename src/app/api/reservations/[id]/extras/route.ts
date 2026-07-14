@@ -2,8 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseExtras } from "@/lib/reservation-extras";
 
-export async function POST(request: NextRequest) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user.hotelId) {
@@ -11,20 +15,21 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
+  const extras = parseExtras(body?.extras);
 
-  const reservationId =
-    typeof body?.reservationId === "string" ? body.reservationId : "";
-  const amount = typeof body?.amount === "number" ? body.amount : NaN;
-
-  if (!reservationId || !Number.isFinite(amount) || amount < 0) {
+  if (
+    !Array.isArray(body?.extras) ||
+    extras.length !== body.extras.length ||
+    extras.some((extra) => !extra.nombre.trim() || extra.monto < 0)
+  ) {
     return NextResponse.json(
-      { error: "Faltan datos obligatorios." },
+      { error: "Los cargos extras no son válidos." },
       { status: 400 }
     );
   }
 
   const reservation = await prisma.reservation.findUnique({
-    where: { id: reservationId },
+    where: { id: params.id },
   });
 
   if (!reservation || reservation.hotelId !== session.user.hotelId) {
@@ -34,15 +39,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const invoice = await prisma.invoice.create({
-    data: {
-      amount,
-      status: amount === 0 ? "PAGADA" : "PENDIENTE",
-      reservationId,
-      hotelId: session.user.hotelId,
-    },
-    include: { reservation: { include: { room: true } } },
+  const updated = await prisma.reservation.update({
+    where: { id: params.id },
+    data: { extras },
+    include: { room: true },
   });
 
-  return NextResponse.json(invoice);
+  return NextResponse.json(updated);
 }

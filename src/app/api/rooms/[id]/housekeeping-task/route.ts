@@ -16,17 +16,21 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
-  const status = body?.status as HousekeepingStatus | undefined;
-  const priority = body?.priority === true;
 
-  if (!status || !HOUSEKEEPING_STATUSES.includes(status)) {
+  if (
+    body?.status !== undefined &&
+    !HOUSEKEEPING_STATUSES.includes(body.status as HousekeepingStatus)
+  ) {
     return NextResponse.json(
       { error: "Estado de tarea inválido." },
       { status: 400 }
     );
   }
 
-  const room = await prisma.room.findUnique({ where: { id: params.id } });
+  const room = await prisma.room.findUnique({
+    where: { id: params.id },
+    include: { housekeepingTask: true },
+  });
 
   if (!room || room.hotelId !== session.user.hotelId) {
     return NextResponse.json(
@@ -35,12 +39,30 @@ export async function PATCH(
     );
   }
 
+  const status = (body?.status as HousekeepingStatus | undefined) ??
+    room.housekeepingTask?.status ??
+    "PENDIENTE";
+  const priority =
+    typeof body?.priority === "boolean"
+      ? body.priority
+      : (room.housekeepingTask?.priority ?? false);
+  const notes =
+    typeof body?.notes === "string"
+      ? body.notes.trim() || null
+      : (room.housekeepingTask?.notes ?? null);
+  const reason =
+    typeof body?.reason === "string"
+      ? body.reason.trim() || null
+      : (room.housekeepingTask?.reason ?? null);
+
   const task = await prisma.housekeepingTask.upsert({
     where: { roomId: params.id },
-    update: { status, priority },
+    update: { status, priority, notes, reason },
     create: {
       status,
       priority,
+      notes,
+      reason,
       roomId: params.id,
       hotelId: session.user.hotelId,
     },

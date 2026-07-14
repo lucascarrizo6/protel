@@ -24,6 +24,15 @@ enum RoomStatus {
   OCCUPIED
   BLOCKED
   CLEANING
+  MANTENIMIENTO
+}
+
+enum BedArrangement {
+  SIMPLE
+  DOBLE
+  TWIN
+  TRIPLE
+  FAMILIAR
 }
 
 enum ReservationStatus {
@@ -59,6 +68,7 @@ model Hotel {
   housekeepingTasks HousekeepingTask[]
   invoices          Invoice[]
   hotelModules      HotelModule[]
+  groups            Group[]
 }
 
 model User {
@@ -75,18 +85,21 @@ model User {
 }
 
 model Room {
-  id     String     @id @default(cuid())
-  number String
-  floor  Int
-  type   String
-  status RoomStatus @default(AVAILABLE)
-  notes  String?
+  id            String     @id @default(cuid())
+  number        String
+  floor         Int
+  type          String
+  status        RoomStatus @default(AVAILABLE)
+  notes         String?
+  capacity      Int        @default(2)
+  pricePerNight Float      @default(0)
 
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
 
   reservations     Reservation[]
   housekeepingTask HousekeepingTask?
+  groupMembers     GroupMember[]
 
   @@unique([hotelId, number])
   @@index([hotelId])
@@ -96,6 +109,8 @@ model HousekeepingTask {
   id        String             @id @default(cuid())
   status    HousekeepingStatus @default(PENDIENTE)
   priority  Boolean            @default(false)
+  notes     String?
+  reason    String?
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
@@ -115,6 +130,7 @@ model Reservation {
   checkIn   DateTime
   checkOut  DateTime
   status    ReservationStatus @default(PENDIENTE)
+  extras    Json?
   createdAt DateTime          @default(now())
 
   hotelId String
@@ -123,7 +139,8 @@ model Reservation {
   roomId String
   room   Room   @relation(fields: [roomId], references: [id])
 
-  invoices Invoice[]
+  invoices    Invoice[]
+  groupMember GroupMember?
 
   @@index([hotelId])
   @@index([roomId])
@@ -143,6 +160,41 @@ model Invoice {
 
   @@index([hotelId])
   @@index([reservationId])
+}
+
+model Group {
+  id               String   @id @default(cuid())
+  nombre           String
+  fechaEntrada     DateTime
+  fechaSalida      DateTime
+  cantidadPersonas Int
+  creadoEn         DateTime @default(now())
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  members GroupMember[]
+
+  @@index([hotelId])
+}
+
+model GroupMember {
+  id              String         @id @default(cuid())
+  nombre          String
+  dni             String
+  esFree          Boolean        @default(false)
+  disposicionCama BedArrangement
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
+
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id])
+
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+  @@index([groupId])
 }
 
 model Module {

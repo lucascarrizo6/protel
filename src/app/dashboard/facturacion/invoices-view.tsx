@@ -83,7 +83,7 @@ export function InvoicesView({
     }
 
     const amountValue = Number(amount);
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    if (!Number.isFinite(amountValue) || amountValue < 0) {
       setError("Ingresa un monto válido.");
       return;
     }
