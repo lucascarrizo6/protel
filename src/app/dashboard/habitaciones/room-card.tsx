@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, StickyNote, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import type { Room } from "@/generated/prisma/client";
 import type { RoomStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +25,6 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,6 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCurrency } from "@/lib/format-currency";
 import {
   ROOM_STATUSES,
@@ -144,19 +144,21 @@ export function RoomCard({
               {room.capacity === 1 ? "persona" : "personas"}
             </CardDescription>
           </div>
-          <div className="flex items-start gap-1.5">
+          <div className="flex items-center gap-1.5">
             {room.notes ? (
-              <Popover>
-                <PopoverTrigger
-                  render={<Button variant="ghost" size="icon-sm" />}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      tabIndex={0}
+                      className="inline-flex size-2 shrink-0 rounded-full bg-amber-500 dark:bg-amber-400"
+                    />
+                  }
                 >
-                  <StickyNote className="size-4 text-amber-600 dark:text-amber-400" />
-                  <span className="sr-only">Ver nota</span>
-                </PopoverTrigger>
-                <PopoverContent className="w-64">
-                  <p className="text-sm">{room.notes}</p>
-                </PopoverContent>
-              </Popover>
+                  <span className="sr-only">Esta habitación tiene una nota</span>
+                </TooltipTrigger>
+                <TooltipContent>{room.notes}</TooltipContent>
+              </Tooltip>
             ) : null}
             <Badge className={roomStatusBadgeClassName(room.status)}>
               {formatRoomStatus(room.status)}

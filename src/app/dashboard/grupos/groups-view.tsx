@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
+import { toast } from "sonner";
 import type {
   Group,
   GroupMember,
@@ -304,19 +305,28 @@ export function GroupsView({
     }
   }
 
-  const loadedMembers = members.filter(
-    (member) => member.nombre.trim() && member.dni.trim()
-  );
-  const totalLoaded = loadedMembers.length;
-  const assignedCount = loadedMembers.filter((member) => member.roomId).length;
-  const missingCount = Math.max(totalLoaded - assignedCount, 0);
+  const cantidadPersonasNum = Number(cantidadPersonas) || 0;
 
   const totalCapacity = selectedRooms.reduce(
     (sum, room) =>
       sum + bedArrangementCapacity(roomArrangements[room.id] ?? "SIMPLE"),
     0
   );
-  const capacityShortfall = Math.max(totalLoaded - totalCapacity, 0);
+  const totalAvailableCapacity = availableRooms.reduce(
+    (sum, room) =>
+      sum + bedArrangementCapacity(roomArrangements[room.id] ?? "SIMPLE"),
+    0
+  );
+  const step2Remaining = cantidadPersonasNum - totalCapacity;
+  const step2Impossible = totalAvailableCapacity < cantidadPersonasNum;
+
+  const loadedMembers = members.filter(
+    (member) => member.nombre.trim() && member.dni.trim()
+  );
+  const assignedCount = loadedMembers.filter((member) => member.roomId).length;
+  const missingCount = Math.max(cantidadPersonasNum - assignedCount, 0);
+
+  const capacityShortfall = Math.max(cantidadPersonasNum - totalCapacity, 0);
 
   const roomOccupancy = new Map<string, number>();
   for (const member of members) {
@@ -326,15 +336,13 @@ export function GroupsView({
       (roomOccupancy.get(member.roomId) ?? 0) + 1
     );
   }
-  const roomsWithSpace = selectedRooms
-    .map((room) => {
-      const capacity = bedArrangementCapacity(
-        roomArrangements[room.id] ?? "SIMPLE"
-      );
-      const occupied = roomOccupancy.get(room.id) ?? 0;
-      return { room, remaining: capacity - occupied };
-    })
-    .filter((entry) => entry.remaining > 0);
+
+  function occupancyExcluding(roomId: string, excludeIndex: number): number {
+    return members.reduce((count, member, i) => {
+      if (i === excludeIndex) return count;
+      return member.roomId === roomId ? count + 1 : count;
+    }, 0);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -402,8 +410,27 @@ export function GroupsView({
             ) : null}
 
             {step === 2 ? (
-              <div className="flex max-h-96 flex-col gap-4 overflow-y-auto">
-                {roomsByFloor.length === 0 ? (
+              <div className="flex flex-col gap-3">
+                <div
+                  className={
+                    step2Remaining <= 0
+                      ? "rounded-md border border-green-600/30 bg-green-100 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-500/15 dark:text-green-400"
+                      : step2Impossible
+                        ? "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+                        : "rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium"
+                  }
+                >
+                  {step2Remaining <= 0
+                    ? "✓ Todos ubicados"
+                    : step2Impossible
+                      ? `⚠ Capacidad insuficiente — faltan ${
+                          cantidadPersonasNum - totalAvailableCapacity
+                        } lugares`
+                      : `${step2Remaining} personas por ubicar`}
+                </div>
+
+                <div className="flex max-h-96 flex-col gap-4 overflow-y-auto">
+                  {roomsByFloor.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No hay habitaciones disponibles para ese rango de fechas.
                   </p>
@@ -472,7 +499,8 @@ export function GroupsView({
                       </div>
                     </div>
                   ))
-                )}
+                  )}
+                </div>
               </div>
             ) : null}
 
@@ -480,8 +508,8 @@ export function GroupsView({
               <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
                   <span className="font-medium">
-                    {assignedCount} de {totalLoaded} personas asignadas —
-                    faltan {missingCount}
+                    {assignedCount} de {cantidadPersonasNum} personas
+                    asignadas — faltan {missingCount}
                   </span>
                   <Button
                     type="button"
@@ -503,16 +531,30 @@ export function GroupsView({
                   </p>
                 ) : null}
 
-                {roomsWithSpace.length > 0 ? (
+                {selectedRooms.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {roomsWithSpace.map(({ room, remaining }) => (
-                      <span
-                        key={room.id}
-                        className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
-                      >
-                        Hab. {room.number} · Lugar disponible ({remaining})
-                      </span>
-                    ))}
+                    {selectedRooms.map((room) => {
+                      const capacity = bedArrangementCapacity(
+                        roomArrangements[room.id] ?? "SIMPLE"
+                      );
+                      const occupied = roomOccupancy.get(room.id) ?? 0;
+                      const remaining = capacity - occupied;
+                      const isFull = remaining <= 0;
+                      return (
+                        <span
+                          key={room.id}
+                          className={
+                            isFull
+                              ? "rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-xs text-destructive"
+                              : "rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                          }
+                        >
+                          {isFull
+                            ? `Hab. ${room.number} · Llena`
+                            : `Hab. ${room.number} · Lugar disponible (${remaining})`}
+                        </span>
+                      );
+                    })}
                   </div>
                 ) : null}
 
@@ -545,9 +587,21 @@ export function GroupsView({
                       <Label className="text-xs">Habitación</Label>
                       <Select
                         value={member.roomId}
-                        onValueChange={(value) =>
-                          updateMember(index, { roomId: value ?? "" })
-                        }
+                        onValueChange={(value) => {
+                          if (!value) {
+                            updateMember(index, { roomId: "" });
+                            return;
+                          }
+                          const capacity = bedArrangementCapacity(
+                            roomArrangements[value] ?? "SIMPLE"
+                          );
+                          const occupied = occupancyExcluding(value, index);
+                          if (occupied >= capacity) {
+                            toast.error("Habitación llena");
+                            return;
+                          }
+                          updateMember(index, { roomId: value });
+                        }}
                       >
                         <SelectTrigger className="h-8 w-full text-xs">
                           <SelectValue>
@@ -560,14 +614,26 @@ export function GroupsView({
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {selectedRooms.map((room) => (
-                            <SelectItem key={room.id} value={room.id}>
-                              Hab. {room.number} ·{" "}
-                              {formatBedArrangement(
-                                roomArrangements[room.id] ?? "SIMPLE"
-                              )}
-                            </SelectItem>
-                          ))}
+                          {selectedRooms.map((room) => {
+                            const capacity = bedArrangementCapacity(
+                              roomArrangements[room.id] ?? "SIMPLE"
+                            );
+                            const isFull =
+                              occupancyExcluding(room.id, index) >= capacity;
+                            return (
+                              <SelectItem
+                                key={room.id}
+                                value={room.id}
+                                disabled={isFull}
+                              >
+                                {isFull
+                                  ? `Hab. ${room.number} (llena)`
+                                  : `Hab. ${room.number} · ${formatBedArrangement(
+                                      roomArrangements[room.id] ?? "SIMPLE"
+                                    )}`}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

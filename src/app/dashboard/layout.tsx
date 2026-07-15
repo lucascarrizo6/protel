@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { CalculatorButton } from "@/components/dashboard/calculator-button";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function DashboardLayout({
@@ -48,6 +49,7 @@ export default async function DashboardLayout({
         </SidebarInset>
       </SidebarProvider>
       <CalculatorButton />
+      <Toaster />
     </TooltipProvider>
   );
 }
