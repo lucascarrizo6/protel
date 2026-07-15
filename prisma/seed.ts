@@ -7,36 +7,52 @@ const prisma = new PrismaClient({ adapter });
 
 const DEMO_PASSWORD = "Demo1234!";
 
-const ROOMS: {
+type RoomSeed = {
   number: string;
   floor: number;
   type: string;
   status: "AVAILABLE" | "OCCUPIED" | "BLOCKED" | "CLEANING";
   notes?: string;
-}[] = [
-  { number: "101", floor: 1, type: "Individual", status: "AVAILABLE" },
-  { number: "102", floor: 1, type: "Individual", status: "OCCUPIED" },
-  {
-    number: "103",
-    floor: 1,
-    type: "Doble",
+};
+
+const ROOM_TYPE_ROTATION = ["Individual", "Doble", "Suite", "Triple"] as const;
+
+const ROOM_OVERRIDES: Record<string, Pick<RoomSeed, "status" | "notes">> = {
+  "102": { status: "OCCUPIED" },
+  "103": {
     status: "CLEANING",
     notes: "Limpieza profunda solicitada por mucama.",
   },
-  { number: "104", floor: 1, type: "Doble", status: "AVAILABLE" },
-  { number: "201", floor: 2, type: "Doble", status: "OCCUPIED" },
-  {
-    number: "202",
-    floor: 2,
-    type: "Suite",
+  "201": { status: "OCCUPIED" },
+  "202": {
     status: "BLOCKED",
     notes: "En mantenimiento: reparación de aire acondicionado programada.",
   },
-  { number: "203", floor: 2, type: "Suite", status: "AVAILABLE" },
-  { number: "301", floor: 3, type: "Deluxe", status: "OCCUPIED" },
-  { number: "302", floor: 3, type: "Deluxe", status: "CLEANING" },
-  { number: "303", floor: 3, type: "Suite Presidencial", status: "AVAILABLE" },
-];
+  "301": { status: "OCCUPIED" },
+  "302": { status: "CLEANING" },
+};
+
+function buildRooms(): RoomSeed[] {
+  const rooms: RoomSeed[] = [];
+
+  for (let floor = 1; floor <= 3; floor++) {
+    for (let index = 1; index <= 10; index++) {
+      const number = `${floor}${String(index).padStart(2, "0")}`;
+      const override = ROOM_OVERRIDES[number];
+      rooms.push({
+        number,
+        floor,
+        type: ROOM_TYPE_ROTATION[(index - 1) % ROOM_TYPE_ROTATION.length],
+        status: override?.status ?? "AVAILABLE",
+        notes: override?.notes,
+      });
+    }
+  }
+
+  return rooms;
+}
+
+const ROOMS = buildRooms();
 
 function addDays(days: number): Date {
   const date = new Date();
