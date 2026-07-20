@@ -6,6 +6,7 @@ import {
   BarChart3,
   BedDouble,
   CalendarCheck,
+  CalendarDays,
   Home,
   Receipt,
   Sparkles,
@@ -31,6 +32,12 @@ const navItems = [
     href: "/dashboard/reservas",
     icon: CalendarCheck,
     moduleSlug: "reservas",
+  },
+  {
+    title: "Calendario",
+    href: "/dashboard/calendario",
+    icon: CalendarDays,
+    moduleSlug: "calendario",
   },
   {
     title: "Grupos",

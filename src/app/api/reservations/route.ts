@@ -3,6 +3,42 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user.hotelId) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
+  const monthParam = request.nextUrl.searchParams.get("month");
+  const match = monthParam?.match(/^(\d{4})-(\d{2})$/);
+
+  if (!match) {
+    return NextResponse.json(
+      { error: "Parámetro month inválido. Formato esperado: YYYY-MM." },
+      { status: 400 }
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 1);
+
+  const reservations = await prisma.reservation.findMany({
+    where: {
+      hotelId: session.user.hotelId,
+      status: { not: "CANCELADA" },
+      checkIn: { lt: monthEnd },
+      checkOut: { gt: monthStart },
+    },
+    include: { room: true },
+    orderBy: { checkIn: "asc" },
+  });
+
+  return NextResponse.json(reservations);
+}
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
