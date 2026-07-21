@@ -8,6 +8,7 @@ import type {
   Reservation,
   Room,
 } from "@/generated/prisma/client";
+import type { DocumentType, PaymentMethod } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,18 +54,14 @@ import {
   sumExtras,
   type ExtraCharge,
 } from "@/lib/reservation-extras";
+import { nightsBetween } from "@/lib/nights-between";
+import { DOCUMENT_TYPES, formatDocumentType } from "@/lib/document-type";
+import { PAYMENT_METHODS, formatPaymentMethod } from "@/lib/payment-method";
 
 type ReservationWithRoom = Reservation & {
   room: Room;
   groupMember: GroupMember | null;
 };
-
-function nightsBetween(checkIn: Date, checkOut: Date): number {
-  const nights = Math.round(
-    (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  return Math.max(nights, 1);
-}
 
 function isCheckInAllowed(reservation: ReservationWithRoom): boolean {
   if (reservation.status !== "PENDIENTE") return false;
@@ -85,6 +82,7 @@ export function ReservationsView({
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [dni, setDni] = useState("");
+  const [documentType, setDocumentType] = useState<DocumentType>("DNI");
   const [roomId, setRoomId] = useState<string>("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -103,15 +101,22 @@ export function ReservationsView({
   const [isSavingExtras, setIsSavingExtras] = useState(false);
   const [extrasError, setExtrasError] = useState<string | null>(null);
 
+  const [checkinReservation, setCheckinReservation] =
+    useState<ReservationWithRoom | null>(null);
+  const [checkinPaymentMethod, setCheckinPaymentMethod] =
+    useState<PaymentMethod | "">("");
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+
   const [checkoutReservation, setCheckoutReservation] =
     useState<ReservationWithRoom | null>(null);
-  const [checkoutAmount, setCheckoutAmount] = useState("");
-  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   function resetForm() {
     setGuestName("");
     setDni("");
+    setDocumentType("DNI");
     setRoomId("");
     setCheckIn("");
     setCheckOut("");
@@ -145,7 +150,14 @@ export function ReservationsView({
       const response = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guestName, dni, roomId, checkIn, checkOut }),
+        body: JSON.stringify({
+          guestName,
+          dni,
+          documentType,
+          roomId,
+          checkIn,
+          checkOut,
+        }),
       });
 
       if (!response.ok) {
@@ -175,15 +187,31 @@ export function ReservationsView({
     );
   }
 
-  async function handleCheckIn(reservation: ReservationWithRoom) {
-    setActionErrorId(null);
-    setActionError(null);
-    setPendingActionId(reservation.id);
+  function openCheckIn(reservation: ReservationWithRoom) {
+    setCheckinReservation(reservation);
+    setCheckinPaymentMethod("");
+    setCheckinError(null);
+  }
+
+  async function confirmCheckIn() {
+    if (!checkinReservation) return;
+
+    if (!checkinPaymentMethod) {
+      setCheckinError("Selecciona un método de pago.");
+      return;
+    }
+
+    setIsCheckingIn(true);
+    setCheckinError(null);
 
     try {
       const response = await fetch(
-        `/api/reservations/${reservation.id}/check-in`,
-        { method: "PATCH" }
+        `/api/reservations/${checkinReservation.id}/check-in`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentMethod: checkinPaymentMethod }),
+        }
       );
       const data = await response.json().catch(() => null);
 
@@ -193,56 +221,71 @@ export function ReservationsView({
 
       updateReservation(data as ReservationWithRoom);
       router.refresh();
+      setCheckinReservation(null);
     } catch (err) {
-      setActionErrorId(reservation.id);
-      setActionError(
+      setCheckinError(
         err instanceof Error ? err.message : "No se pudo hacer el check-in."
       );
     } finally {
-      setPendingActionId(null);
+      setIsCheckingIn(false);
     }
   }
 
+  async function performCheckOut(reservation: ReservationWithRoom) {
+    const response = await fetch(
+      `/api/reservations/${reservation.id}/check-out`,
+      { method: "PATCH" }
+    );
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error ?? "No se pudo hacer el check-out.");
+    }
+
+    updateReservation(data as ReservationWithRoom);
+    router.refresh();
+  }
+
   async function handleCheckOut(reservation: ReservationWithRoom) {
-    setActionErrorId(null);
-    setActionError(null);
-    setPendingActionId(reservation.id);
+    const extras = parseExtras(reservation.extras);
+
+    if (extras.length === 0) {
+      setActionErrorId(null);
+      setActionError(null);
+      setPendingActionId(reservation.id);
+
+      try {
+        await performCheckOut(reservation);
+      } catch (err) {
+        setActionErrorId(reservation.id);
+        setActionError(
+          err instanceof Error ? err.message : "No se pudo hacer el check-out."
+        );
+      } finally {
+        setPendingActionId(null);
+      }
+      return;
+    }
+
+    setCheckoutReservation(reservation);
+    setCheckoutError(null);
+  }
+
+  async function confirmCheckOut() {
+    if (!checkoutReservation) return;
+
+    setIsCheckingOut(true);
+    setCheckoutError(null);
 
     try {
-      const response = await fetch(
-        `/api/reservations/${reservation.id}/check-out`,
-        { method: "PATCH" }
-      );
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.error ?? "No se pudo hacer el check-out.");
-      }
-
-      const updated = data as ReservationWithRoom;
-      updateReservation(updated);
-      router.refresh();
-
-      const nights = nightsBetween(
-        new Date(updated.checkIn),
-        new Date(updated.checkOut)
-      );
-      const baseAmount = nights * updated.room.pricePerNight;
-      const extrasTotal = sumExtras(parseExtras(updated.extras));
-      const total = updated.groupMember?.esFree
-        ? 0
-        : baseAmount + extrasTotal;
-
-      setCheckoutReservation(updated);
-      setCheckoutAmount(total.toString());
-      setCheckoutError(null);
+      await performCheckOut(checkoutReservation);
+      setCheckoutReservation(null);
     } catch (err) {
-      setActionErrorId(reservation.id);
-      setActionError(
+      setCheckoutError(
         err instanceof Error ? err.message : "No se pudo hacer el check-out."
       );
     } finally {
-      setPendingActionId(null);
+      setIsCheckingOut(false);
     }
   }
 
@@ -309,45 +352,22 @@ export function ReservationsView({
     }
   }
 
-  async function submitInvoice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!checkoutReservation) return;
-
-    const amountValue = Number(checkoutAmount);
-    if (!Number.isFinite(amountValue) || amountValue < 0) {
-      setCheckoutError("Ingresa un monto válido.");
-      return;
-    }
-
-    setIsCreatingInvoice(true);
-    setCheckoutError(null);
-
-    try {
-      const response = await fetch("/api/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reservationId: checkoutReservation.id,
-          amount: amountValue,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? "No se pudo crear la factura.");
-      }
-
-      setCheckoutReservation(null);
-    } catch (err) {
-      setCheckoutError(
-        err instanceof Error ? err.message : "No se pudo crear la factura."
-      );
-    } finally {
-      setIsCreatingInvoice(false);
-    }
-  }
-
   const extrasTotalDraft = sumExtras(extrasDraft);
+
+  const checkinNights = checkinReservation
+    ? nightsBetween(
+        new Date(checkinReservation.checkIn),
+        new Date(checkinReservation.checkOut)
+      )
+    : 0;
+  const checkinAmount = checkinReservation?.groupMember?.esFree
+    ? 0
+    : checkinNights * (checkinReservation?.room.pricePerNight ?? 0);
+
+  const checkoutExtras = checkoutReservation
+    ? parseExtras(checkoutReservation.extras)
+    : [];
+  const checkoutExtrasTotal = sumExtras(checkoutExtras);
 
   return (
     <div className="flex flex-col gap-4">
@@ -377,13 +397,37 @@ export function ReservationsView({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="dni">DNI</Label>
-                  <Input
-                    id="dni"
-                    required
-                    value={dni}
-                    onChange={(event) => setDni(event.target.value)}
-                  />
+                  <Label htmlFor="dni">Documento</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={documentType}
+                      onValueChange={(value) =>
+                        setDocumentType((value as DocumentType | null) ?? "DNI")
+                      }
+                    >
+                      <SelectTrigger className="w-36">
+                        <SelectValue>
+                          {(value: DocumentType | null) =>
+                            value ? formatDocumentType(value) : "Tipo"
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOCUMENT_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {formatDocumentType(type)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="dni"
+                      required
+                      className="flex-1"
+                      value={dni}
+                      onChange={(event) => setDni(event.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -477,7 +521,7 @@ export function ReservationsView({
             <TableHeader>
               <TableRow>
                 <TableHead>Huésped</TableHead>
-                <TableHead>DNI</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>Habitación</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
@@ -500,7 +544,10 @@ export function ReservationsView({
                         </Badge>
                       ) : null}
                     </TableCell>
-                    <TableCell>{reservation.dni}</TableCell>
+                    <TableCell>
+                      {formatDocumentType(reservation.documentType)}{" "}
+                      {reservation.dni}
+                    </TableCell>
                     <TableCell>{reservation.room.number}</TableCell>
                     <TableCell>
                       {formatDate(new Date(reservation.checkIn))}
@@ -537,7 +584,7 @@ export function ReservationsView({
                               variant="outline"
                               className="border-green-600/30 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
                               disabled={isPending}
-                              onClick={() => handleCheckIn(reservation)}
+                              onClick={() => openCheckIn(reservation)}
                             >
                               Check-in
                             </Button>
@@ -670,73 +717,134 @@ export function ReservationsView({
       </Dialog>
 
       <Dialog
+        open={checkinReservation !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setCheckinReservation(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cobro de alojamiento</DialogTitle>
+            <DialogDescription>
+              Confirma el pago para hacer check-in de{" "}
+              {checkinReservation?.guestName}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="rounded-md border p-3 text-sm text-muted-foreground">
+              Habitación {checkinReservation?.room.number} · {checkinNights}{" "}
+              noche(s)
+              {checkinReservation?.groupMember?.esFree ? (
+                <span className="ml-2">
+                  <Badge variant="secondary">Cortesía de grupo (FREE)</Badge>
+                </span>
+              ) : null}
+              <p className="mt-1 text-base font-semibold text-foreground">
+                {formatCurrency(checkinAmount)}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="checkinPaymentMethod">Método de pago</Label>
+              <Select
+                value={checkinPaymentMethod}
+                onValueChange={(value) =>
+                  setCheckinPaymentMethod((value as PaymentMethod | null) ?? "")
+                }
+              >
+                <SelectTrigger id="checkinPaymentMethod" className="w-full">
+                  <SelectValue placeholder="Selecciona un método de pago">
+                    {(value: PaymentMethod | null) =>
+                      value ? formatPaymentMethod(value) : "Selecciona un método de pago"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {formatPaymentMethod(method)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {checkinError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {checkinError}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCheckinReservation(null)}
+              disabled={isCheckingIn}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={confirmCheckIn} disabled={isCheckingIn}>
+              {isCheckingIn ? "Confirmando…" : "Confirmar pago y check-in"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={checkoutReservation !== null}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setCheckoutReservation(null);
         }}
       >
         <DialogContent>
-          <form onSubmit={submitInvoice} className="contents">
-            <DialogHeader>
-              <DialogTitle>Nueva factura</DialogTitle>
-              <DialogDescription>
-                Check-out realizado. Confirma el monto para generar la
-                factura de {checkoutReservation?.guestName}.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Cobro de consumos</DialogTitle>
+            <DialogDescription>
+              Resumen de extras cargados durante la estadía de{" "}
+              {checkoutReservation?.guestName}.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="flex flex-col gap-4">
-              <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                Habitación {checkoutReservation?.room.number} ·{" "}
-                {checkoutReservation
-                  ? nightsBetween(
-                      new Date(checkoutReservation.checkIn),
-                      new Date(checkoutReservation.checkOut)
-                    )
-                  : 0}{" "}
-                noche(s)
-                {checkoutReservation?.groupMember?.esFree ? (
-                  <span className="ml-2">
-                    <Badge variant="secondary">Cortesía de grupo (FREE)</Badge>
-                  </span>
-                ) : null}
-              </div>
+          <div className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-1.5">
+              {checkoutExtras.map((extra, index) => (
+                <li
+                  key={`${extra.nombre}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-sm"
+                >
+                  <span>{extra.nombre}</span>
+                  <span>{formatCurrency(extra.monto)}</span>
+                </li>
+              ))}
+            </ul>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="checkoutAmount">Monto (ARS)</Label>
-                <Input
-                  id="checkoutAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  value={checkoutAmount}
-                  onChange={(event) => setCheckoutAmount(event.target.value)}
-                  disabled={checkoutReservation?.groupMember?.esFree}
-                />
-              </div>
+            <p className="text-right text-sm font-medium">
+              Total consumos: {formatCurrency(checkoutExtrasTotal)}
+            </p>
 
-              {checkoutError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {checkoutError}
-                </p>
-              ) : null}
-            </div>
+            {checkoutError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {checkoutError}
+              </p>
+            ) : null}
+          </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCheckoutReservation(null)}
-                disabled={isCreatingInvoice}
-              >
-                Cerrar
-              </Button>
-              <Button type="submit" disabled={isCreatingInvoice}>
-                {isCreatingInvoice ? "Creando…" : "Crear factura"}
-              </Button>
-            </DialogFooter>
-          </form>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCheckoutReservation(null)}
+              disabled={isCheckingOut}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={confirmCheckOut} disabled={isCheckingOut}>
+              {isCheckingOut ? "Confirmando…" : "Confirmar pago y check-out"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

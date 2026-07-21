@@ -54,6 +54,23 @@ enum InvoiceStatus {
   CANCELADA
 }
 
+enum InvoiceType {
+  ALOJAMIENTO
+  CONSUMOS
+}
+
+enum DocumentType {
+  DNI
+  PASAPORTE
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  TRANSFERENCIA
+}
+
 model Hotel {
   id        String   @id @default(cuid())
   name      String
@@ -125,14 +142,15 @@ model HousekeepingTask {
 }
 
 model Reservation {
-  id        String            @id @default(cuid())
-  guestName String
-  dni       String
-  checkIn   DateTime
-  checkOut  DateTime
-  status    ReservationStatus @default(PENDIENTE)
-  extras    Json?
-  createdAt DateTime          @default(now())
+  id           String            @id @default(cuid())
+  guestName    String
+  dni          String
+  documentType DocumentType      @default(DNI)
+  checkIn      DateTime
+  checkOut     DateTime
+  status       ReservationStatus @default(PENDIENTE)
+  extras       Json?
+  createdAt    DateTime          @default(now())
 
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
@@ -148,10 +166,12 @@ model Reservation {
 }
 
 model Invoice {
-  id        String        @id @default(cuid())
-  amount    Float
-  status    InvoiceStatus @default(PENDIENTE)
-  createdAt DateTime      @default(now())
+  id            String         @id @default(cuid())
+  amount        Float
+  status        InvoiceStatus  @default(PENDIENTE)
+  type          InvoiceType    @default(ALOJAMIENTO)
+  paymentMethod PaymentMethod?
+  createdAt     DateTime       @default(now())
 
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
@@ -183,6 +203,7 @@ model GroupMember {
   id              String         @id @default(cuid())
   nombre          String
   dni             String
+  documentType    DocumentType   @default(DNI)
   esFree          Boolean        @default(false)
   disposicionCama BedArrangement
 

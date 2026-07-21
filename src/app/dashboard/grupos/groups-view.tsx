@@ -9,7 +9,7 @@ import type {
   Reservation,
   Room,
 } from "@/generated/prisma/client";
-import type { BedArrangement } from "@/generated/prisma/enums";
+import type { BedArrangement, DocumentType } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,7 @@ import {
   bedArrangementCapacity,
   formatBedArrangement,
 } from "@/lib/bed-arrangement";
+import { DOCUMENT_TYPES, formatDocumentType } from "@/lib/document-type";
 
 type GroupWithMembers = Group & {
   members: (GroupMember & {
@@ -57,6 +58,7 @@ type ReservationSlim = { roomId: string; checkIn: Date; checkOut: Date };
 type DraftMember = {
   nombre: string;
   dni: string;
+  documentType: DocumentType;
   roomId: string;
   esFree: boolean;
 };
@@ -208,6 +210,7 @@ export function GroupsView({
       Array.from({ length: cantidad }, () => ({
         nombre: "",
         dni: "",
+        documentType: "DNI",
         roomId: "",
         esFree: false,
       }))
@@ -224,7 +227,7 @@ export function GroupsView({
   function addMemberRow() {
     setMembers((prev) => [
       ...prev,
-      { nombre: "", dni: "", roomId: "", esFree: false },
+      { nombre: "", dni: "", documentType: "DNI", roomId: "", esFree: false },
     ]);
   }
 
@@ -263,7 +266,7 @@ export function GroupsView({
         (member) => !member.nombre.trim() || !member.dni.trim() || !member.roomId
       )
     ) {
-      setError("Completa nombre, DNI y habitación de cada integrante.");
+      setError("Completa nombre, documento y habitación de cada integrante.");
       return;
     }
 
@@ -281,6 +284,7 @@ export function GroupsView({
           members: members.map((member) => ({
             nombre: member.nombre,
             dni: member.dni,
+            documentType: member.documentType,
             roomId: member.roomId,
             disposicionCama: roomArrangements[member.roomId] ?? "SIMPLE",
             esFree: member.esFree,
@@ -573,8 +577,35 @@ export function GroupsView({
                         }
                       />
                     </div>
+                    <div className="flex w-24 flex-col gap-1">
+                      <Label className="text-xs">Tipo</Label>
+                      <Select
+                        value={member.documentType}
+                        onValueChange={(value) =>
+                          updateMember(index, {
+                            documentType:
+                              (value as DocumentType | null) ?? "DNI",
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-full text-xs">
+                          <SelectValue>
+                            {(value: DocumentType | null) =>
+                              value ? formatDocumentType(value) : ""
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOCUMENT_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {formatDocumentType(type)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex w-28 flex-col gap-1">
-                      <Label className="text-xs">DNI</Label>
+                      <Label className="text-xs">Documento</Label>
                       <Input
                         className="h-8"
                         value={member.dni}

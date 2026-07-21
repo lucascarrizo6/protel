@@ -42,6 +42,11 @@ import {
   formatInvoiceStatus,
   invoiceStatusBadgeClassName,
 } from "@/lib/invoice-status";
+import {
+  formatInvoiceType,
+  invoiceTypeBadgeClassName,
+} from "@/lib/invoice-type";
+import { formatPaymentMethod } from "@/lib/payment-method";
 
 type ReservationWithRoom = Reservation & { room: Room };
 type InvoiceWithReservation = Invoice & { reservation: ReservationWithRoom };
@@ -208,7 +213,9 @@ export function InvoicesView({
                 <TableHead>Habitación</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Monto</TableHead>
+                <TableHead>Método de pago</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -225,7 +232,17 @@ export function InvoicesView({
                   <TableCell>
                     {formatDate(new Date(invoice.reservation.checkOut))}
                   </TableCell>
+                  <TableCell>
+                    <Badge className={invoiceTypeBadgeClassName(invoice.type)}>
+                      {formatInvoiceType(invoice.type)}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                  <TableCell>
+                    {invoice.paymentMethod
+                      ? formatPaymentMethod(invoice.paymentMethod)
+                      : "—"}
+                  </TableCell>
                   <TableCell>
                     <Badge className={invoiceStatusBadgeClassName(invoice.status)}>
                       {formatInvoiceStatus(invoice.status)}

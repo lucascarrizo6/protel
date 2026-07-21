@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { DOCUMENT_TYPES } from "@/lib/document-type";
+import type { DocumentType } from "@/generated/prisma/enums";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -51,11 +53,20 @@ export async function POST(request: NextRequest) {
   const guestName =
     typeof body?.guestName === "string" ? body.guestName.trim() : "";
   const dni = typeof body?.dni === "string" ? body.dni.trim() : "";
+  const documentType = body?.documentType as DocumentType | undefined;
   const roomId = typeof body?.roomId === "string" ? body.roomId : "";
   const checkInRaw = typeof body?.checkIn === "string" ? body.checkIn : "";
   const checkOutRaw = typeof body?.checkOut === "string" ? body.checkOut : "";
 
-  if (!guestName || !dni || !roomId || !checkInRaw || !checkOutRaw) {
+  if (
+    !guestName ||
+    !dni ||
+    !documentType ||
+    !DOCUMENT_TYPES.includes(documentType) ||
+    !roomId ||
+    !checkInRaw ||
+    !checkOutRaw
+  ) {
     return NextResponse.json(
       { error: "Faltan datos obligatorios." },
       { status: 400 }
@@ -89,6 +100,7 @@ export async function POST(request: NextRequest) {
     data: {
       guestName,
       dni,
+      documentType,
       checkIn,
       checkOut,
       roomId,

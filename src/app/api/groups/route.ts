@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BED_ARRANGEMENTS } from "@/lib/bed-arrangement";
-import type { BedArrangement } from "@/generated/prisma/enums";
+import { DOCUMENT_TYPES } from "@/lib/document-type";
+import type { BedArrangement, DocumentType } from "@/generated/prisma/enums";
 
 type MemberInput = {
   nombre: string;
   dni: string;
+  documentType: DocumentType;
   roomId: string;
   disposicionCama: BedArrangement;
   esFree: boolean;
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
   for (const raw of membersRaw) {
     const memberNombre = typeof raw?.nombre === "string" ? raw.nombre.trim() : "";
     const dni = typeof raw?.dni === "string" ? raw.dni.trim() : "";
+    const documentType = raw?.documentType as DocumentType | undefined;
     const roomId = typeof raw?.roomId === "string" ? raw.roomId : "";
     const disposicionCama = raw?.disposicionCama as BedArrangement | undefined;
     const esFree = raw?.esFree === true;
@@ -67,6 +70,8 @@ export async function POST(request: NextRequest) {
     if (
       !memberNombre ||
       !dni ||
+      !documentType ||
+      !DOCUMENT_TYPES.includes(documentType) ||
       !roomId ||
       !disposicionCama ||
       !BED_ARRANGEMENTS.includes(disposicionCama)
@@ -80,6 +85,7 @@ export async function POST(request: NextRequest) {
     members.push({
       nombre: memberNombre,
       dni,
+      documentType,
       roomId,
       disposicionCama,
       esFree,
@@ -134,6 +140,7 @@ export async function POST(request: NextRequest) {
         data: {
           guestName: member.nombre,
           dni: member.dni,
+          documentType: member.documentType,
           checkIn: fechaEntrada,
           checkOut: fechaSalida,
           roomId: member.roomId,
@@ -145,6 +152,7 @@ export async function POST(request: NextRequest) {
         data: {
           nombre: member.nombre,
           dni: member.dni,
+          documentType: member.documentType,
           esFree: member.esFree,
           disposicionCama: member.disposicionCama,
           groupId: createdGroup.id,

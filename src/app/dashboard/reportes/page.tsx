@@ -52,7 +52,12 @@ export default async function ReportesPage() {
         }),
         prisma.reservation.findMany({
           where: { hotelId },
-          select: { dni: true, checkIn: true, checkOut: true },
+          select: {
+            dni: true,
+            documentType: true,
+            checkIn: true,
+            checkOut: true,
+          },
         }),
       ])
     : [[], 0, [], []];
@@ -99,7 +104,7 @@ export default async function ReportesPage() {
           reservation.checkIn.getFullYear() === now.getFullYear() &&
           reservation.checkIn.getMonth() === now.getMonth()
       )
-      .map((reservation) => reservation.dni)
+      .map((reservation) => `${reservation.documentType}:${reservation.dni}`)
   ).size;
 
   const averageStayDays =

@@ -17,9 +17,12 @@ import {
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
+import { formatDocument } from "@/lib/document-type";
+import type { DocumentType } from "@/generated/prisma/enums";
 
 type GuestSummary = {
   dni: string;
+  documentType: DocumentType;
   name: string;
   totalStays: number;
   lastVisit: Date;
@@ -45,7 +48,8 @@ export default async function HuespedesPage() {
       .filter((invoice) => invoice.status === "PAGADA")
       .reduce((sum, invoice) => sum + invoice.amount, 0);
 
-    const existing = guestsByDni.get(reservation.dni);
+    const key = `${reservation.documentType}:${reservation.dni}`;
+    const existing = guestsByDni.get(key);
 
     if (existing) {
       existing.totalStays += 1;
@@ -55,8 +59,9 @@ export default async function HuespedesPage() {
         existing.name = reservation.guestName;
       }
     } else {
-      guestsByDni.set(reservation.dni, {
+      guestsByDni.set(key, {
         dni: reservation.dni,
+        documentType: reservation.documentType,
         name: reservation.guestName,
         totalStays: 1,
         lastVisit: reservation.checkOut,
@@ -93,7 +98,7 @@ export default async function HuespedesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>DNI</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>Estadías totales</TableHead>
                 <TableHead>Última visita</TableHead>
                 <TableHead>Total gastado</TableHead>
@@ -101,9 +106,11 @@ export default async function HuespedesPage() {
             </TableHeader>
             <TableBody>
               {guests.map((guest) => (
-                <TableRow key={guest.dni}>
+                <TableRow key={`${guest.documentType}:${guest.dni}`}>
                   <TableCell className="font-medium">{guest.name}</TableCell>
-                  <TableCell>{guest.dni}</TableCell>
+                  <TableCell>
+                    {formatDocument(guest.documentType, guest.dni)}
+                  </TableCell>
                   <TableCell>{guest.totalStays}</TableCell>
                   <TableCell>{formatDate(guest.lastVisit)}</TableCell>
                   <TableCell>{formatCurrency(guest.totalSpent)}</TableCell>

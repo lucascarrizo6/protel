@@ -72,6 +72,7 @@ function monthsAgo(months: number): Date {
 const RESERVATIONS: {
   guestName: string;
   dni: string;
+  documentType: "DNI" | "PASAPORTE";
   roomNumber: string;
   checkIn: Date;
   checkOut: Date;
@@ -80,6 +81,7 @@ const RESERVATIONS: {
   {
     guestName: "Martín Gómez",
     dni: "30456789",
+    documentType: "DNI",
     roomNumber: "101",
     checkIn: addDays(0),
     checkOut: addDays(2),
@@ -88,6 +90,7 @@ const RESERVATIONS: {
   {
     guestName: "Lucía Fernández",
     dni: "28123456",
+    documentType: "DNI",
     roomNumber: "102",
     checkIn: addDays(5),
     checkOut: addDays(8),
@@ -96,6 +99,7 @@ const RESERVATIONS: {
   {
     guestName: "Carlos Rodríguez",
     dni: "25987654",
+    documentType: "DNI",
     roomNumber: "202",
     checkIn: addDays(-10),
     checkOut: addDays(-7),
@@ -104,6 +108,7 @@ const RESERVATIONS: {
   {
     guestName: "Sofía Martínez",
     dni: "33222111",
+    documentType: "DNI",
     roomNumber: "203",
     checkIn: addDays(1),
     checkOut: addDays(3),
@@ -111,7 +116,8 @@ const RESERVATIONS: {
   },
   {
     guestName: "Diego Álvarez",
-    dni: "27888999",
+    dni: "AB123456",
+    documentType: "PASAPORTE",
     roomNumber: "301",
     checkIn: addDays(-3),
     checkOut: addDays(-1),
