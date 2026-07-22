@@ -22,7 +22,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { title: "Inicio", href: "/dashboard", icon: Home, moduleSlug: null },
@@ -77,6 +79,8 @@ export function AppSidebar({
   enabledModuleSlugs: string[];
 }) {
   const pathname = usePathname();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const visibleNavItems = navItems.filter(
     (item) => item.moduleSlug === null || enabledModuleSlugs.includes(item.moduleSlug)
@@ -85,13 +89,20 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2.5 px-2 py-1.5">
+        <div
+          className={cn(
+            "flex items-center gap-2.5 px-2 py-1.5",
+            isCollapsed && "justify-center px-0"
+          )}
+        >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background">
             P
           </div>
-          <span className="text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Protel
-          </span>
+          {isCollapsed ? null : (
+            <span className="text-sm font-semibold tracking-tight">
+              Protel
+            </span>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>
