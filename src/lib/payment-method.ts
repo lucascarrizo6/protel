@@ -12,6 +12,7 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TARJETA_DEBITO: "Tarjeta de débito",
   TARJETA_CREDITO: "Tarjeta de crédito",
   TRANSFERENCIA: "Transferencia",
+  MERCADO_PAGO: "MercadoPago",
 };
 
 export function formatPaymentMethod(method: PaymentMethod): string {

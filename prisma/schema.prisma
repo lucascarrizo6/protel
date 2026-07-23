@@ -69,6 +69,7 @@ enum PaymentMethod {
   TARJETA_DEBITO
   TARJETA_CREDITO
   TRANSFERENCIA
+  MERCADO_PAGO
 }
 
 model Hotel {

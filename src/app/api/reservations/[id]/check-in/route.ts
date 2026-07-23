@@ -2,9 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { nightsBetween } from "@/lib/nights-between";
+import { confirmCheckInPayment } from "@/lib/confirm-checkin-payment";
 import { PAYMENT_METHODS } from "@/lib/payment-method";
-import type { PaymentMethod } from "@/generated/prisma/enums";
 
 export async function PATCH(
   request: NextRequest,
@@ -17,7 +16,9 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
-  const paymentMethod = body?.paymentMethod as PaymentMethod | undefined;
+  const paymentMethod = body?.paymentMethod as
+    | (typeof PAYMENT_METHODS)[number]
+    | undefined;
 
   if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
     return NextResponse.json(
@@ -28,7 +29,6 @@ export async function PATCH(
 
   const reservation = await prisma.reservation.findUnique({
     where: { id: params.id },
-    include: { room: true, groupMember: true },
   });
 
   if (!reservation || reservation.hotelId !== session.user.hotelId) {
@@ -58,47 +58,10 @@ export async function PATCH(
     );
   }
 
-  const amount = reservation.groupMember?.esFree
-    ? 0
-    : nightsBetween(reservation.checkIn, reservation.checkOut) *
-      reservation.room.pricePerNight;
-
-  const updatedReservation = await prisma.$transaction(async (tx) => {
-    const current = await tx.reservation.findUniqueOrThrow({
-      where: { id: params.id },
-    });
-
-    if (current.status !== "PENDIENTE") {
-      throw new Error("CONFLICT");
-    }
-
-    await tx.invoice.create({
-      data: {
-        amount,
-        status: "PAGADA",
-        type: "ALOJAMIENTO",
-        paymentMethod,
-        reservationId: reservation.id,
-        hotelId: session.user.hotelId!,
-      },
-    });
-
-    const updated = await tx.reservation.update({
-      where: { id: params.id },
-      data: { status: "CONFIRMADA" },
-      include: { room: true, groupMember: true },
-    });
-
-    await tx.room.update({
-      where: { id: reservation.roomId },
-      data: { status: "OCCUPIED" },
-    });
-
-    return updated;
-  }).catch((error) => {
-    if (error instanceof Error && error.message === "CONFLICT") return null;
-    throw error;
-  });
+  const updatedReservation = await confirmCheckInPayment(
+    params.id,
+    paymentMethod
+  );
 
   if (!updatedReservation) {
     return NextResponse.json(
