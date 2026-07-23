@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import type {
   GroupMember,
@@ -78,6 +79,7 @@ export function ReservationsView({
   rooms: Room[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [reservations, setReservations] = useState(initialReservations);
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -107,11 +109,34 @@ export function ReservationsView({
     useState<PaymentMethod | "">("");
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
+  const [isRedirectingToMp, setIsRedirectingToMp] = useState(false);
 
   const [checkoutReservation, setCheckoutReservation] =
     useState<ReservationWithRoom | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pago = searchParams.get("pago");
+    if (!pago) return;
+
+    // Se difiere al siguiente tick: en el montaje inicial de la página
+    // este efecto corre antes de que <Toaster/> suscriba su listener,
+    // así que un toast disparado de forma síncrona aquí se pierde.
+    const timeout = setTimeout(() => {
+      if (pago === "exitoso") {
+        toast.success("Pago con MercadoPago confirmado.");
+      } else if (pago === "fallido") {
+        toast.error("El pago con MercadoPago no pudo completarse.");
+      } else if (pago === "pendiente") {
+        toast.info("El pago con MercadoPago quedó pendiente.");
+      }
+
+      router.replace("/dashboard/reservas");
+    }, 100);
+
+    return () => clearTimeout(timeout);
+  }, [searchParams, router]);
 
   function resetForm() {
     setGuestName("");
@@ -191,6 +216,7 @@ export function ReservationsView({
     setCheckinReservation(reservation);
     setCheckinPaymentMethod("");
     setCheckinError(null);
+    setIsRedirectingToMp(false);
   }
 
   async function confirmCheckIn() {
@@ -228,6 +254,41 @@ export function ReservationsView({
       );
     } finally {
       setIsCheckingIn(false);
+    }
+  }
+
+  async function payWithMercadoPago() {
+    if (!checkinReservation) return;
+
+    setCheckinError(null);
+    setIsRedirectingToMp(true);
+
+    try {
+      const response = await fetch("/api/mercadopago/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          monto: checkinAmount,
+          concepto: `Alojamiento · Habitación ${checkinReservation.room.number} · ${checkinReservation.guestName}`,
+          reservaId: checkinReservation.id,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.init_point) {
+        throw new Error(
+          data?.error ?? "No se pudo iniciar el pago con MercadoPago."
+        );
+      }
+
+      window.location.href = data.init_point;
+    } catch (err) {
+      setCheckinError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo iniciar el pago con MercadoPago."
+      );
+      setIsRedirectingToMp(false);
     }
   }
 
@@ -770,6 +831,28 @@ export function ReservationsView({
               </Select>
             </div>
 
+            {checkinAmount > 0 ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                o
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            ) : null}
+
+            {checkinAmount > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-sky-600/30 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20"
+                onClick={payWithMercadoPago}
+                disabled={isRedirectingToMp || isCheckingIn}
+              >
+                {isRedirectingToMp
+                  ? "Redirigiendo a MercadoPago…"
+                  : "Pagar con MercadoPago"}
+              </Button>
+            ) : null}
+
             {checkinError ? (
               <p role="alert" className="text-sm text-destructive">
                 {checkinError}
@@ -782,11 +865,14 @@ export function ReservationsView({
               type="button"
               variant="outline"
               onClick={() => setCheckinReservation(null)}
-              disabled={isCheckingIn}
+              disabled={isCheckingIn || isRedirectingToMp}
             >
               Cancelar
             </Button>
-            <Button onClick={confirmCheckIn} disabled={isCheckingIn}>
+            <Button
+              onClick={confirmCheckIn}
+              disabled={isCheckingIn || isRedirectingToMp}
+            >
               {isCheckingIn ? "Confirmando…" : "Confirmar pago y check-in"}
             </Button>
           </DialogFooter>
