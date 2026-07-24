@@ -7,11 +7,13 @@ import {
   BedDouble,
   CalendarCheck,
   CalendarDays,
+  FileCog,
   Home,
   Receipt,
   Sparkles,
   Users,
 } from "lucide-react";
+import type { UserRole } from "@/generated/prisma/enums";
 import {
   Sidebar,
   SidebarContent,
@@ -71,19 +73,30 @@ const navItems = [
     icon: BarChart3,
     moduleSlug: "reportes",
   },
+  {
+    title: "Facturación AFIP",
+    href: "/dashboard/configuracion",
+    icon: FileCog,
+    moduleSlug: null,
+    roles: ["HOTEL_ADMIN"],
+  },
 ] as const;
 
 export function AppSidebar({
   enabledModuleSlugs,
+  role,
 }: {
   enabledModuleSlugs: string[];
+  role: UserRole;
 }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
   const visibleNavItems = navItems.filter(
-    (item) => item.moduleSlug === null || enabledModuleSlugs.includes(item.moduleSlug)
+    (item) =>
+      (item.moduleSlug === null || enabledModuleSlugs.includes(item.moduleSlug)) &&
+      (!("roles" in item) || (item.roles as readonly string[]).includes(role))
   );
 
   return (

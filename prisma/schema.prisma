@@ -72,6 +72,17 @@ enum PaymentMethod {
   MERCADO_PAGO
 }
 
+enum TipoFacturaAfip {
+  A
+  B
+  C
+}
+
+enum AfipAmbiente {
+  SANDBOX
+  PRODUCCION
+}
+
 model Hotel {
   id        String   @id @default(cuid())
   name      String
@@ -87,6 +98,7 @@ model Hotel {
   invoices          Invoice[]
   hotelModules      HotelModule[]
   groups            Group[]
+  afipConfig        AfipConfig?
 }
 
 model User {
@@ -240,4 +252,21 @@ model HotelModule {
 
   @@id([hotelId, moduleId])
   @@index([moduleId])
+}
+
+model AfipConfig {
+  id                 String          @id @default(cuid())
+  cuit               String
+  // Certificado (.crt) y clave privada (.key) cifrados con AES-256-GCM
+  // (ver src/lib/encryption.ts) antes de guardarse, nunca en texto plano.
+  certificado        String
+  clavePrivada       String
+  puntoVenta         Int
+  tipoFacturaDefault TipoFacturaAfip @default(B)
+  ambiente           AfipAmbiente    @default(SANDBOX)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  hotelId String @unique
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
 }

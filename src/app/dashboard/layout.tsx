@@ -39,7 +39,10 @@ export default async function DashboardLayout({
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar enabledModuleSlugs={enabledModuleSlugs} />
+        <AppSidebar
+          enabledModuleSlugs={enabledModuleSlugs}
+          role={session.user.role}
+        />
         <SidebarInset>
           <DashboardHeader
             hotelName={hotel?.name ?? "Protel"}
