@@ -28,7 +28,11 @@ export function LoginForm() {
     setIsSubmitting(false);
 
     if (result?.error) {
-      setError("Correo electrónico o contraseña incorrectos.");
+      setError(
+        result.error === "CredentialsSignin"
+          ? "Correo electrónico o contraseña incorrectos."
+          : result.error
+      );
       return;
     }
 

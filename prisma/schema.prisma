@@ -270,3 +270,13 @@ model AfipConfig {
   hotelId String @unique
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
 }
+
+model LoginAttempt {
+  id       String   @id @default(cuid())
+  email    String
+  ip       String
+  exitoso  Boolean
+  creadoEn DateTime @default(now())
+
+  @@index([email, creadoEn])
+}
