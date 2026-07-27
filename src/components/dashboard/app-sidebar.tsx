@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,10 +11,12 @@ import {
   FileCog,
   Home,
   Receipt,
+  ShieldCheck,
   Sparkles,
   Users,
 } from "lucide-react";
 import type { UserRole } from "@/generated/prisma/enums";
+import type { HotelModuleKey } from "@/lib/super-admin";
 import {
   Sidebar,
   SidebarContent,
@@ -29,75 +32,101 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { title: "Inicio", href: "/dashboard", icon: Home, moduleSlug: null },
-  { title: "Habitaciones", href: "/dashboard/habitaciones", icon: BedDouble, moduleSlug: null },
+  { title: "Inicio", href: "/dashboard", icon: Home, moduleKey: null },
+  { title: "Habitaciones", href: "/dashboard/habitaciones", icon: BedDouble, moduleKey: null },
   {
     title: "Reservas",
     href: "/dashboard/reservas",
     icon: CalendarCheck,
-    moduleSlug: "reservas",
+    moduleKey: null,
   },
   {
     title: "Calendario",
     href: "/dashboard/calendario",
     icon: CalendarDays,
-    moduleSlug: "calendario",
+    moduleKey: "calendario",
   },
   {
     title: "Grupos",
     href: "/dashboard/grupos",
     icon: Users,
-    moduleSlug: "grupos",
+    moduleKey: "grupos",
   },
   {
     title: "Mucama",
     href: "/dashboard/mucama",
     icon: Sparkles,
-    moduleSlug: "mucama",
+    moduleKey: "mucama",
   },
   {
     title: "Facturación",
     href: "/dashboard/facturacion",
     icon: Receipt,
-    moduleSlug: "facturacion",
+    moduleKey: null,
   },
   {
     title: "Huéspedes",
     href: "/dashboard/huespedes",
     icon: Users,
-    moduleSlug: "huespedes",
+    moduleKey: null,
   },
   {
     title: "Reportes",
     href: "/dashboard/reportes",
     icon: BarChart3,
-    moduleSlug: "reportes",
+    moduleKey: null,
   },
   {
     title: "Facturación AFIP",
     href: "/dashboard/configuracion",
     icon: FileCog,
-    moduleSlug: null,
+    moduleKey: "afip",
     roles: ["HOTEL_ADMIN"],
+  },
+  {
+    title: "Super Admin",
+    href: "/dashboard/super-admin",
+    icon: ShieldCheck,
+    moduleKey: null,
+    roles: ["SUPER_ADMIN"],
   },
 ] as const;
 
-export function AppSidebar({
-  enabledModuleSlugs,
-  role,
-}: {
-  enabledModuleSlugs: string[];
-  role: UserRole;
-}) {
+type HotelModulesState = Record<HotelModuleKey, boolean> | null;
+
+export function AppSidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [hotelModules, setHotelModules] = useState<HotelModulesState>(null);
 
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (item.moduleSlug === null || enabledModuleSlugs.includes(item.moduleSlug)) &&
-      (!("roles" in item) || (item.roles as readonly string[]).includes(role))
-  );
+  useEffect(() => {
+    if (role === "SUPER_ADMIN") return;
+
+    let cancelled = false;
+
+    fetch("/api/hotel/modules")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setHotelModules(data);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  const visibleNavItems = navItems.filter((item) => {
+    if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
+      return false;
+    }
+    if (role === "SUPER_ADMIN") return true;
+    if (item.moduleKey && hotelModules?.[item.moduleKey as HotelModuleKey] === false) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <Sidebar collapsible="icon">

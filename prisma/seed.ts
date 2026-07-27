@@ -153,44 +153,6 @@ const INVOICES: {
   { guestName: "Sofía Martínez", amount: 30000, status: "PENDIENTE", createdAt: monthsAgo(0) },
 ];
 
-const MODULES: {
-  name: string;
-  slug: string;
-  description: string;
-  icon: string;
-}[] = [
-  {
-    name: "Reservas",
-    slug: "reservas",
-    description: "Gestión de reservas y huéspedes.",
-    icon: "calendar-check",
-  },
-  {
-    name: "Mucama",
-    slug: "mucama",
-    description: "Tareas de limpieza y disponibilidad de habitaciones.",
-    icon: "sparkles",
-  },
-  {
-    name: "Facturación",
-    slug: "facturacion",
-    description: "Facturas, pagos y saldos pendientes.",
-    icon: "receipt",
-  },
-  {
-    name: "Reportes",
-    slug: "reportes",
-    description: "Estadísticas y reportes de ocupación e ingresos.",
-    icon: "bar-chart",
-  },
-  {
-    name: "Huéspedes",
-    slug: "huespedes",
-    description: "CRM de huéspedes con historial de estadías.",
-    icon: "users",
-  },
-];
-
 async function main() {
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
 
@@ -224,47 +186,11 @@ async function main() {
     },
   });
 
-  const modulesBySlug = new Map<string, string>();
-
-  for (const module_ of MODULES) {
-    const savedModule = await prisma.module.upsert({
-      where: { slug: module_.slug },
-      update: {
-        name: module_.name,
-        description: module_.description,
-        icon: module_.icon,
-      },
-      create: module_,
-    });
-    modulesBySlug.set(module_.slug, savedModule.id);
-  }
-
-  console.log(`Se sembraron ${MODULES.length} módulos.`);
-
-  const ENABLED_MODULES = [
-    "reservas",
-    "mucama",
-    "facturacion",
-    "reportes",
-    "huespedes",
-  ];
-
-  for (const slug of MODULES.map((module_) => module_.slug)) {
-    await prisma.hotelModule.upsert({
-      where: {
-        hotelId_moduleId: {
-          hotelId: hotel.id,
-          moduleId: modulesBySlug.get(slug)!,
-        },
-      },
-      update: { enabled: ENABLED_MODULES.includes(slug) },
-      create: {
-        hotelId: hotel.id,
-        moduleId: modulesBySlug.get(slug)!,
-        enabled: ENABLED_MODULES.includes(slug),
-      },
-    });
-  }
+  await prisma.hotelModules.upsert({
+    where: { hotelId: hotel.id },
+    update: {},
+    create: { hotelId: hotel.id },
+  });
 
   console.log(`Se configuraron los módulos para ${hotel.name}.`);
 

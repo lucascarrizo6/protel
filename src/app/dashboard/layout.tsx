@@ -25,24 +25,10 @@ export default async function DashboardLayout({
     ? await prisma.hotel.findUnique({ where: { id: session.user.hotelId } })
     : null;
 
-  const enabledHotelModules = session.user.hotelId
-    ? await prisma.hotelModule.findMany({
-        where: { hotelId: session.user.hotelId, enabled: true },
-        include: { module: true },
-      })
-    : [];
-
-  const enabledModuleSlugs = enabledHotelModules.map(
-    (hotelModule) => hotelModule.module.slug
-  );
-
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar
-          enabledModuleSlugs={enabledModuleSlugs}
-          role={session.user.role}
-        />
+        <AppSidebar role={session.user.role} />
         <SidebarInset>
           <DashboardHeader
             hotelName={hotel?.name ?? "Protel"}
