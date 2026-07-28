@@ -246,7 +246,6 @@ export function ReservationsView({
       }
 
       updateReservation(data as ReservationWithRoom);
-      router.refresh();
       setCheckinReservation(null);
     } catch (err) {
       setCheckinError(
@@ -304,7 +303,6 @@ export function ReservationsView({
     }
 
     updateReservation(data as ReservationWithRoom);
-    router.refresh();
   }
 
   async function handleCheckOut(reservation: ReservationWithRoom) {

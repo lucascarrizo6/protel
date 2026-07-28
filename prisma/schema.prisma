@@ -177,6 +177,8 @@ model Reservation {
 
   @@index([hotelId])
   @@index([roomId])
+  @@index([hotelId, checkIn])
+  @@index([hotelId, status])
 }
 
 model Invoice {
@@ -195,6 +197,7 @@ model Invoice {
 
   @@index([hotelId])
   @@index([reservationId])
+  @@index([hotelId, createdAt])
 }
 
 model Group {

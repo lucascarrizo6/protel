@@ -12,6 +12,7 @@ export default async function FacturacionPage() {
           where: { hotelId: session.user.hotelId },
           include: { reservation: { include: { room: true } } },
           orderBy: { createdAt: "desc" },
+          take: 50,
         }),
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId },

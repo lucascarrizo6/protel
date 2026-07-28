@@ -11,7 +11,8 @@ export default async function ReservationsPage() {
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId },
           include: { room: true, groupMember: true },
-          orderBy: { checkIn: "asc" },
+          orderBy: { checkIn: "desc" },
+          take: 50,
         }),
         prisma.room.findMany({
           where: { hotelId: session.user.hotelId },

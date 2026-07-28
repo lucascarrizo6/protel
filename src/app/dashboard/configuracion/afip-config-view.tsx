@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Upload } from "lucide-react";
 import type { AfipAmbiente, TipoFacturaAfip } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +50,6 @@ export function AfipConfigView({
 }: {
   initialConfig: AfipConfigSummary | null;
 }) {
-  const router = useRouter();
   const [config, setConfig] = useState(initialConfig);
   const [isEditing, setIsEditing] = useState(!initialConfig);
 
@@ -155,7 +153,6 @@ export function AfipConfigView({
 
       setConfig(data as AfipConfigSummary);
       setIsEditing(false);
-      router.refresh();
     } catch (err) {
       setError(
         err instanceof Error

@@ -20,7 +20,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { formatDocument } from "@/lib/document-type";
 import type { DocumentType } from "@/generated/prisma/enums";
 
-type GuestSummary = {
+type GuestRow = {
   dni: string;
   documentType: DocumentType;
   name: string;
@@ -33,46 +33,49 @@ export default async function HuespedesPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
 
-  const reservations = hotelId
-    ? await prisma.reservation.findMany({
-        where: { hotelId },
-        include: { invoices: true },
-        orderBy: { checkOut: "desc" },
-      })
+  // Agrupado por DNI+tipo de documento en la propia query (CTE + DISTINCT ON)
+  // en vez de traer todas las reservas con todas sus facturas y agregar en JS.
+  const guestRows = hotelId
+    ? await prisma.$queryRaw<GuestRow[]>`
+        WITH guest_stats AS (
+          SELECT
+            r."dni" AS "dni",
+            r."documentType" AS "documentType",
+            COUNT(*)::int AS "totalStays",
+            MAX(r."checkOut") AS "lastVisit",
+            COALESCE(SUM(i."amount") FILTER (WHERE i."status" = 'PAGADA'), 0) AS "totalSpent"
+          FROM "Reservation" r
+          LEFT JOIN "Invoice" i ON i."reservationId" = r."id"
+          WHERE r."hotelId" = ${hotelId}
+          GROUP BY r."dni", r."documentType"
+        )
+        SELECT DISTINCT ON (gs."dni", gs."documentType")
+          gs."dni" AS "dni",
+          gs."documentType" AS "documentType",
+          gs."totalStays" AS "totalStays",
+          gs."lastVisit" AS "lastVisit",
+          gs."totalSpent" AS "totalSpent",
+          r."guestName" AS "name"
+        FROM guest_stats gs
+        JOIN "Reservation" r
+          ON r."dni" = gs."dni"
+          AND r."documentType" = gs."documentType"
+          AND r."checkOut" = gs."lastVisit"
+          AND r."hotelId" = ${hotelId}
+        ORDER BY gs."dni", gs."documentType", r."checkOut" DESC, r."id" DESC
+      `
     : [];
 
-  const guestsByDni = new Map<string, GuestSummary>();
-
-  for (const reservation of reservations) {
-    const paidAmount = reservation.invoices
-      .filter((invoice) => invoice.status === "PAGADA")
-      .reduce((sum, invoice) => sum + invoice.amount, 0);
-
-    const key = `${reservation.documentType}:${reservation.dni}`;
-    const existing = guestsByDni.get(key);
-
-    if (existing) {
-      existing.totalStays += 1;
-      existing.totalSpent += paidAmount;
-      if (reservation.checkOut > existing.lastVisit) {
-        existing.lastVisit = reservation.checkOut;
-        existing.name = reservation.guestName;
-      }
-    } else {
-      guestsByDni.set(key, {
-        dni: reservation.dni,
-        documentType: reservation.documentType,
-        name: reservation.guestName,
-        totalStays: 1,
-        lastVisit: reservation.checkOut,
-        totalSpent: paidAmount,
-      });
-    }
-  }
-
-  const guests = Array.from(guestsByDni.values()).sort(
-    (a, b) => b.lastVisit.getTime() - a.lastVisit.getTime()
-  );
+  const guests = guestRows
+    .map((row) => ({
+      dni: row.dni,
+      documentType: row.documentType,
+      name: row.name,
+      totalStays: Number(row.totalStays),
+      lastVisit: new Date(row.lastVisit),
+      totalSpent: Number(row.totalSpent ?? 0),
+    }))
+    .sort((a, b) => b.lastVisit.getTime() - a.lastVisit.getTime());
 
   return (
     <div className="flex flex-col gap-6">

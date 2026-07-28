@@ -11,6 +11,15 @@ export const HOTEL_MODULE_KEYS = [
 
 export type HotelModuleKey = (typeof HOTEL_MODULE_KEYS)[number];
 
+export const DEFAULT_HOTEL_MODULES: Record<HotelModuleKey, boolean> = {
+  mercadopago: true,
+  afip: true,
+  grupos: true,
+  mucama: true,
+  calendario: true,
+  reservas: true,
+};
+
 export const HOTEL_MODULE_LABELS: Record<HotelModuleKey, string> = {
   mercadopago: "MercadoPago",
   afip: "Facturación AFIP",

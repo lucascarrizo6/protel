@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -92,30 +91,16 @@ const navItems = [
   },
 ] as const;
 
-type HotelModulesState = Record<HotelModuleKey, boolean> | null;
-
-export function AppSidebar({ role }: { role: UserRole }) {
+export function AppSidebar({
+  role,
+  hotelModules,
+}: {
+  role: UserRole;
+  hotelModules: Record<HotelModuleKey, boolean> | null;
+}) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  const [hotelModules, setHotelModules] = useState<HotelModulesState>(null);
-
-  useEffect(() => {
-    if (role === "SUPER_ADMIN") return;
-
-    let cancelled = false;
-
-    fetch("/api/hotel/modules")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (!cancelled && data) setHotelModules(data);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [role]);
 
   const visibleNavItems = navItems.filter((item) => {
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
@@ -137,7 +122,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
             isCollapsed && "justify-center px-0"
           )}
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
             P
           </div>
           {isCollapsed ? null : (

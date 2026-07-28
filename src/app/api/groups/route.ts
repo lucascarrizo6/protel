@@ -135,32 +135,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    for (const member of members) {
-      const reservation = await tx.reservation.create({
-        data: {
-          guestName: member.nombre,
-          dni: member.dni,
-          documentType: member.documentType,
-          checkIn: fechaEntrada,
-          checkOut: fechaSalida,
-          roomId: member.roomId,
-          hotelId,
-        },
-      });
+    await Promise.all(
+      members.map(async (member) => {
+        const reservation = await tx.reservation.create({
+          data: {
+            guestName: member.nombre,
+            dni: member.dni,
+            documentType: member.documentType,
+            checkIn: fechaEntrada,
+            checkOut: fechaSalida,
+            roomId: member.roomId,
+            hotelId,
+          },
+        });
 
-      await tx.groupMember.create({
-        data: {
-          nombre: member.nombre,
-          dni: member.dni,
-          documentType: member.documentType,
-          esFree: member.esFree,
-          disposicionCama: member.disposicionCama,
-          groupId: createdGroup.id,
-          roomId: member.roomId,
-          reservationId: reservation.id,
-        },
-      });
-    }
+        await tx.groupMember.create({
+          data: {
+            nombre: member.nombre,
+            dni: member.dni,
+            documentType: member.documentType,
+            esFree: member.esFree,
+            disposicionCama: member.disposicionCama,
+            groupId: createdGroup.id,
+            roomId: member.roomId,
+            reservationId: reservation.id,
+          },
+        });
+      })
+    );
 
     return tx.group.findUniqueOrThrow({
       where: { id: createdGroup.id },
