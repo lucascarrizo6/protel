@@ -35,16 +35,10 @@ export function DashboardHeader({
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                aria-label="Notificaciones"
-              />
+              <Button variant="ghost" size="icon" aria-label="Notificaciones" />
             }
           >
             <Bell />
-            <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary" />
           </TooltipTrigger>
           <TooltipContent>No hay notificaciones nuevas</TooltipContent>
         </Tooltip>
