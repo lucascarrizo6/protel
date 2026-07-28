@@ -21,7 +21,25 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RoomCard } from "./room-card";
+
+const ROOM_TYPES = [
+  "Simple",
+  "Doble",
+  "Twin (dos camas)",
+  "Triple",
+  "Cuádruple",
+  "Suite",
+  "Suite Junior",
+  "Departamento",
+] as const;
 
 export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   const [rooms, setRooms] = useState(initialRooms);
@@ -63,6 +81,12 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (!type) {
+      setError("Selecciona un tipo de habitación.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -139,13 +163,21 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
 
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="type">Tipo</Label>
-                  <Input
-                    id="type"
-                    placeholder="Individual, Doble, Suite…"
-                    required
+                  <Select
                     value={type}
-                    onChange={(event) => setType(event.target.value)}
-                  />
+                    onValueChange={(value) => setType(value ?? "")}
+                  >
+                    <SelectTrigger id="type" className="w-full">
+                      <SelectValue placeholder="Selecciona un tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROOM_TYPES.map((roomType) => (
+                        <SelectItem key={roomType} value={roomType}>
+                          {roomType}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
