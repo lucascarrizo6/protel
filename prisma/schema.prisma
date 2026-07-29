@@ -160,6 +160,8 @@ model Reservation {
   guestName    String
   dni          String
   documentType DocumentType      @default(DNI)
+  email        String?
+  phone        String?
   checkIn      DateTime
   checkOut     DateTime
   status       ReservationStatus @default(PENDIENTE)

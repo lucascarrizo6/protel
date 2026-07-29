@@ -97,20 +97,16 @@ export async function POST(
     );
   }
 
-  const reservation = await prisma.reservation.create({
-    data: {
-      guestName: `${nombre} ${apellido}`.trim(),
-      dni: numeroDocumento,
-      documentType: tipoDocumento,
-      checkIn,
-      checkOut,
-      roomId,
-      hotelId: hotel.id,
-    },
-  });
-
   const amount = nightsBetween(checkIn, checkOut) * room.pricePerNight;
   const baseUrl = request.nextUrl.origin;
+
+  // Se genera el id de antemano (sin crear la fila todavía) para poder
+  // usarlo como external_reference de MercadoPago. La reserva sólo se
+  // persiste si la preferencia de pago se creó con éxito: si MercadoPago
+  // falla, no queda ninguna reserva PENDIENTE "huérfana" bloqueando la
+  // habitación para esas fechas.
+  const reservationId = crypto.randomUUID();
+  let initPoint: string | undefined;
 
   try {
     const preference = new Preference(mercadoPagoClient);
@@ -118,7 +114,7 @@ export async function POST(
       body: {
         items: [
           {
-            id: reservation.id,
+            id: reservationId,
             title: `Alojamiento · Habitación ${room.number} · ${hotel.name}`,
             quantity: 1,
             currency_id: "ARS",
@@ -126,7 +122,7 @@ export async function POST(
           },
         ],
         payer: { name: nombre, surname: apellido, email },
-        external_reference: reservation.id,
+        external_reference: reservationId,
         back_urls: {
           success: `${baseUrl}/reservar/${params.slug}/exito`,
           failure: `${baseUrl}/reservar/${params.slug}?pago=fallido`,
@@ -135,10 +131,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({
-      reservaId: reservation.id,
-      initPoint: result.init_point,
-    });
+    initPoint = result.init_point;
   } catch (error) {
     console.error("Reserva pública · MercadoPago create-preference error:", error);
     return NextResponse.json(
@@ -146,4 +139,51 @@ export async function POST(
       { status: 502 }
     );
   }
+
+  if (!initPoint) {
+    return NextResponse.json(
+      { error: "No se pudo iniciar el pago. Intenta nuevamente." },
+      { status: 502 }
+    );
+  }
+
+  // Se re-verifica la disponibilidad recién ahora: el round-trip a
+  // MercadoPago pudo haber tardado lo suficiente como para que otra
+  // persona reserve la misma habitación mientras tanto.
+  const stillOverlapping = await prisma.reservation.findFirst({
+    where: {
+      hotelId: hotel.id,
+      roomId,
+      status: { in: ["PENDIENTE", "CONFIRMADA"] },
+      checkIn: { lt: checkOut },
+      checkOut: { gt: checkIn },
+    },
+  });
+
+  if (stillOverlapping) {
+    return NextResponse.json(
+      { error: "La habitación ya no está disponible para esas fechas." },
+      { status: 409 }
+    );
+  }
+
+  const reservation = await prisma.reservation.create({
+    data: {
+      id: reservationId,
+      guestName: `${nombre} ${apellido}`.trim(),
+      dni: numeroDocumento,
+      documentType: tipoDocumento,
+      email,
+      phone: telefono,
+      checkIn,
+      checkOut,
+      roomId,
+      hotelId: hotel.id,
+    },
+  });
+
+  return NextResponse.json({
+    reservaId: reservation.id,
+    initPoint,
+  });
 }

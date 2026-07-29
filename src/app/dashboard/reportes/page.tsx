@@ -24,6 +24,7 @@ import { RevenueChart } from "./revenue-chart";
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("es-AR", {
   month: "short",
   year: "numeric",
+  timeZone: "UTC",
 });
 
 const ROOM_STATUS_ORDER: RoomStatus[] = [
@@ -78,8 +79,8 @@ export default async function ReportesPage() {
   >();
 
   for (const invoice of invoices) {
-    const key = `${invoice.createdAt.getFullYear()}-${String(
-      invoice.createdAt.getMonth() + 1
+    const key = `${invoice.createdAt.getUTCFullYear()}-${String(
+      invoice.createdAt.getUTCMonth() + 1
     ).padStart(2, "0")}`;
     const label = MONTH_LABEL_FORMATTER.format(invoice.createdAt);
     const bucket = revenueByMonth.get(key) ?? { label, invoiced: 0, paid: 0 };
@@ -101,8 +102,8 @@ export default async function ReportesPage() {
     reservations
       .filter(
         (reservation) =>
-          reservation.checkIn.getFullYear() === now.getFullYear() &&
-          reservation.checkIn.getMonth() === now.getMonth()
+          reservation.checkIn.getUTCFullYear() === now.getUTCFullYear() &&
+          reservation.checkIn.getUTCMonth() === now.getUTCMonth()
       )
       .map((reservation) => `${reservation.documentType}:${reservation.dni}`)
   ).size;

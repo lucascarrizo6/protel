@@ -31,6 +31,15 @@ const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("es-AR", {
   year: "numeric",
 });
 
+// A diferencia de formatDate (que fuerza UTC para fechas guardadas como
+// checkIn/checkOut), selectedDate es una celda del grilla armada en hora
+// local, así que se formatea en hora local para no correrse un día.
+const LOCAL_DAY_LABEL_FORMATTER = new Intl.DateTimeFormat("es-AR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
 function dateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate()
@@ -426,7 +435,7 @@ export function CalendarView({
         <SheetContent>
           <SheetHeader>
             <SheetTitle>
-              {selectedDate ? formatDate(selectedDate) : ""}
+              {selectedDate ? LOCAL_DAY_LABEL_FORMATTER.format(selectedDate) : ""}
             </SheetTitle>
             <SheetDescription>
               Reservas con actividad ese día.

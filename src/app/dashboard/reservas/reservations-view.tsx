@@ -581,6 +581,8 @@ export function ReservationsView({
               <TableRow>
                 <TableHead>Huésped</TableHead>
                 <TableHead>Documento</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Teléfono</TableHead>
                 <TableHead>Habitación</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
@@ -607,6 +609,8 @@ export function ReservationsView({
                       {formatDocumentType(reservation.documentType)}{" "}
                       {reservation.dni}
                     </TableCell>
+                    <TableCell>{reservation.email ?? "—"}</TableCell>
+                    <TableCell>{reservation.phone ?? "—"}</TableCell>
                     <TableCell>{reservation.room.number}</TableCell>
                     <TableCell>
                       {formatDate(new Date(reservation.checkIn))}
