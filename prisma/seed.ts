@@ -157,9 +157,9 @@ async function main() {
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
 
   const hotel = await prisma.hotel.upsert({
-    where: { slug: "demo-hotel" },
+    where: { slug: "hotel-demo" },
     update: { name: "Hotel Demo" },
-    create: { name: "Hotel Demo", slug: "demo-hotel" },
+    create: { name: "Hotel Demo", slug: "hotel-demo" },
   });
 
   await prisma.user.upsert({
