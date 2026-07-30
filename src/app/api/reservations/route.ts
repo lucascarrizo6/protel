@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
+import { blockingReservationFilter } from "@/lib/reservation-overlap";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 export async function GET(request: NextRequest) {
@@ -93,6 +94,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Habitación no encontrada." },
       { status: 404 }
+    );
+  }
+
+  const overlapping = await prisma.reservation.findFirst({
+    where: {
+      hotelId: session.user.hotelId,
+      roomId,
+      ...blockingReservationFilter(),
+      checkIn: { lt: checkOut },
+      checkOut: { gt: checkIn },
+    },
+  });
+
+  if (overlapping) {
+    return NextResponse.json(
+      { error: "La habitación ya tiene una reserva en ese rango de fechas." },
+      { status: 409 }
     );
   }
 

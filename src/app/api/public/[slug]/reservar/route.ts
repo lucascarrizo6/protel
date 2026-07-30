@@ -3,11 +3,16 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 import { prisma } from "@/lib/prisma";
 import { nightsBetween } from "@/lib/nights-between";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
+import { blockingReservationFilter } from "@/lib/reservation-overlap";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
 });
+
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 function parseDate(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -19,6 +24,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const clientIp = getClientIp(request);
+
+  if (!checkRateLimit(`reservar:${clientIp}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes, intentá más tarde." },
+      { status: 429 }
+    );
+  }
+
   const hotel = await prisma.hotel.findUnique({
     where: { slug: params.slug },
   });
@@ -84,7 +98,7 @@ export async function POST(
     where: {
       hotelId: hotel.id,
       roomId,
-      status: { in: ["PENDIENTE", "CONFIRMADA"] },
+      ...blockingReservationFilter(),
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
     },
@@ -154,7 +168,7 @@ export async function POST(
     where: {
       hotelId: hotel.id,
       roomId,
-      status: { in: ["PENDIENTE", "CONFIRMADA"] },
+      ...blockingReservationFilter(),
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
     },

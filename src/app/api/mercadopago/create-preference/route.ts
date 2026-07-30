@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { nightsBetween } from "@/lib/nights-between";
 
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -17,13 +18,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
 
-  const monto = typeof body?.monto === "number" ? body.monto : NaN;
-  const concepto =
-    typeof body?.concepto === "string" ? body.concepto.trim() : "";
   const reservaId =
     typeof body?.reservaId === "string" ? body.reservaId : "";
 
-  if (!Number.isFinite(monto) || monto <= 0 || !concepto || !reservaId) {
+  if (!reservaId) {
     return NextResponse.json(
       { error: "Faltan datos obligatorios." },
       { status: 400 }
@@ -32,6 +30,7 @@ export async function POST(request: NextRequest) {
 
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservaId },
+    include: { room: true, groupMember: true, hotel: true },
   });
 
   if (!reservation || reservation.hotelId !== session.user.hotelId) {
@@ -41,6 +40,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // El monto se calcula siempre server-side (noches × precio de la
+  // habitación), nunca se confía en un valor mandado por el cliente.
+  const monto = reservation.groupMember?.esFree
+    ? 0
+    : nightsBetween(reservation.checkIn, reservation.checkOut) *
+      reservation.room.pricePerNight;
+
+  if (monto <= 0) {
+    return NextResponse.json(
+      { error: "Esta reserva no tiene un monto pendiente de pago." },
+      { status: 400 }
+    );
+  }
+
+  const concepto = `Alojamiento · Habitación ${reservation.room.number} · ${reservation.guestName}`;
   const baseUrl = request.nextUrl.origin;
 
   try {

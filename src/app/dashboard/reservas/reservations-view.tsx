@@ -267,8 +267,6 @@ export function ReservationsView({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          monto: checkinAmount,
-          concepto: `Alojamiento · Habitación ${checkinReservation.room.number} · ${checkinReservation.guestName}`,
           reservaId: checkinReservation.id,
         }),
       });

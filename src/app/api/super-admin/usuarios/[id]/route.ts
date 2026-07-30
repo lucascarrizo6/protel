@@ -31,6 +31,13 @@ export async function PATCH(
     );
   }
 
+  if (user.role === "SUPER_ADMIN") {
+    return NextResponse.json(
+      { error: "No se puede cambiar el rol de un Super Administrador." },
+      { status: 403 }
+    );
+  }
+
   const updated = await prisma.user.update({
     where: { id: params.id },
     data: { role: rol },

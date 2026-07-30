@@ -15,6 +15,10 @@ export async function PATCH(
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
+  if (session.user.role !== "HOTEL_ADMIN") {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => null);
   const status = body?.status as RoomStatus | undefined;
   const notes = typeof body?.notes === "string" ? body.notes : "";
@@ -50,6 +54,10 @@ export async function DELETE(
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
+  if (session.user.role !== "HOTEL_ADMIN") {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const room = await prisma.room.findUnique({ where: { id: params.id } });

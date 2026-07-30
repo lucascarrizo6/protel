@@ -1,11 +1,10 @@
+import crypto from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/password";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
-
-const DEMO_PASSWORD = "Demo1234!";
 
 type RoomSeed = {
   number: string;
@@ -154,7 +153,25 @@ const INVOICES: {
 ];
 
 async function main() {
-  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
+  // Nunca hardcodear contraseñas de las cuentas demo: se toman de env vars y,
+  // si no están seteadas, se genera una al azar y se loguea una única vez
+  // (es la única forma de recuperarla, ya que no queda en texto plano en ningún lado).
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomUUID();
+  const superPassword = process.env.SEED_SUPER_PASSWORD ?? crypto.randomUUID();
+
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.log(
+      `SEED_ADMIN_PASSWORD no está seteada. Contraseña generada para admin@protel.dev: ${adminPassword}`
+    );
+  }
+  if (!process.env.SEED_SUPER_PASSWORD) {
+    console.log(
+      `SEED_SUPER_PASSWORD no está seteada. Contraseña generada para superadmin@protel.dev: ${superPassword}`
+    );
+  }
+
+  const adminPasswordHash = await hashPassword(adminPassword);
+  const superPasswordHash = await hashPassword(superPassword);
 
   const hotel = await prisma.hotel.upsert({
     where: { slug: "hotel-demo" },
@@ -164,11 +181,11 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "admin@protel.dev" },
-    update: { name: "Usuario Administrador", passwordHash: demoPasswordHash },
+    update: { name: "Usuario Administrador", passwordHash: adminPasswordHash },
     create: {
       name: "Usuario Administrador",
       email: "admin@protel.dev",
-      passwordHash: demoPasswordHash,
+      passwordHash: adminPasswordHash,
       role: "HOTEL_ADMIN",
       hotelId: hotel.id,
     },
@@ -176,11 +193,11 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "superadmin@protel.dev" },
-    update: { name: "Super Administrador", passwordHash: demoPasswordHash },
+    update: { name: "Super Administrador", passwordHash: superPasswordHash },
     create: {
       name: "Super Administrador",
       email: "superadmin@protel.dev",
-      passwordHash: demoPasswordHash,
+      passwordHash: superPasswordHash,
       role: "SUPER_ADMIN",
       hotelId: null,
     },
@@ -256,7 +273,6 @@ async function main() {
   }
 
   console.log(`Se sembraron ${INVOICES.length} facturas para ${hotel.name}.`);
-  console.log(`Contraseña de las cuentas de demostración: ${DEMO_PASSWORD}`);
 }
 
 main()

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { blockingReservationFilter } from "@/lib/reservation-overlap";
 
 function parseDateParam(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -43,7 +44,7 @@ export async function GET(
   const overlapping = await prisma.reservation.findMany({
     where: {
       hotelId: hotel.id,
-      status: { in: ["PENDIENTE", "CONFIRMADA"] },
+      ...blockingReservationFilter(),
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
     },

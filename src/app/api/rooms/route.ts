@@ -10,6 +10,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
+  if (session.user.role !== "HOTEL_ADMIN") {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => null);
 
   const number = typeof body?.number === "string" ? body.number.trim() : "";
