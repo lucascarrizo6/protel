@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import type { Room } from "@/generated/prisma/client";
+import type { RoomStatus } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -166,7 +167,13 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
           
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "")}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Estado" />
+              <SelectValue placeholder="Estado">
+                {(value: string | null) =>
+                  !value || value === "ALL"
+                    ? "Todos los estados"
+                    : formatRoomStatus(value as RoomStatus)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Todos los estados</SelectItem>
