@@ -18,12 +18,14 @@ export async function POST(request: NextRequest) {
 
   const number = typeof body?.number === "string" ? body.number.trim() : "";
   const type = typeof body?.type === "string" ? body.type.trim() : "";
+  const floor = Number(body?.floor); // <-- 1. Extraemos el piso
   const capacity = Number(body?.capacity);
   const pricePerNight = Number(body?.pricePerNight);
 
   if (
     !number ||
     !type ||
+    !Number.isInteger(floor) || // <-- 2. Validamos que el piso sea un número entero (puede ser negativo para subsuelos)
     !Number.isInteger(capacity) ||
     capacity <= 0 ||
     !Number.isFinite(pricePerNight) ||
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
     data: {
       number,
       type,
-      floor: 0,
+      floor, // <-- 3. Asignamos el valor real en lugar de "0"
       capacity,
       pricePerNight,
       hotelId: session.user.hotelId,

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RoomCard } from "./room-card";
+import { ROOM_STATUSES, formatRoomStatus } from "@/lib/room-status";
 
 const ROOM_TYPES = [
   "Simple",
@@ -44,9 +45,11 @@ const ROOM_TYPES = [
 export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   const [rooms, setRooms] = useState(initialRooms);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [open, setOpen] = useState(false);
   const [number, setNumber] = useState("");
+  const [floor, setFloor] = useState("");
   const [type, setType] = useState("");
   const [capacity, setCapacity] = useState("2");
   const [pricePerNight, setPricePerNight] = useState("");
@@ -54,13 +57,35 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const filteredRooms = useMemo(() => {
+    let result = rooms;
+    
+    if (statusFilter !== "ALL") {
+      result = result.filter((room) => room.status === statusFilter);
+    }
+    
     const query = search.trim();
-    if (!query) return rooms;
-    return rooms.filter((room) => room.number.includes(query));
-  }, [rooms, search]);
+    if (query) {
+      result = result.filter((room) => room.number.includes(query));
+    }
+    
+    return result;
+  }, [rooms, search, statusFilter]);
+
+  const groupedRooms = useMemo(() => {
+    const groups: Record<number, Room[]> = {};
+    for (const room of filteredRooms) {
+      if (!groups[room.floor]) {
+        groups[room.floor] = [];
+      }
+      groups[room.floor].push(room);
+    }
+    
+    return Object.entries(groups).sort(([a], [b]) => Number(a) - Number(b));
+  }, [filteredRooms]);
 
   function resetForm() {
     setNumber("");
+    setFloor("");
     setType("");
     setCapacity("2");
     setPricePerNight("");
@@ -96,6 +121,7 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
         body: JSON.stringify({
           number,
           type,
+          floor: Number(floor),
           capacity: Number(capacity),
           pricePerNight: Number(pricePerNight),
         }),
@@ -125,16 +151,32 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por número…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-8"
-          />
+        <div className="flex w-full max-w-lg gap-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por número…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-8"
+            />
+          </div>
+          
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Todos los estados</SelectItem>
+              {ROOM_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {formatRoomStatus(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -151,14 +193,28 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
               </DialogHeader>
 
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="number">Número</Label>
-                  <Input
-                    id="number"
-                    required
-                    value={number}
-                    onChange={(event) => setNumber(event.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="number">Número</Label>
+                    <Input
+                      id="number"
+                      required
+                      value={number}
+                      onChange={(event) => setNumber(event.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="floor">Piso</Label>
+                    <Input
+                      id="floor"
+                      type="number"
+                      step="1"
+                      placeholder="Ej: 3, 0 o -1"
+                      required
+                      value={floor}
+                      onChange={(event) => setFloor(event.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -241,19 +297,28 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
             </CardDescription>
           </CardHeader>
         </Card>
-      ) : filteredRooms.length === 0 ? (
+      ) : groupedRooms.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Sin resultados</CardTitle>
             <CardDescription>
-              No hay habitaciones que coincidan con &quot;{search}&quot;.
+              No hay habitaciones que coincidan con los filtros aplicados.
             </CardDescription>
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredRooms.map((room) => (
-            <RoomCard key={room.id} room={room} onDeleted={handleDeleted} />
+        <div className="flex flex-col gap-8">
+          {groupedRooms.map(([floorLevel, floorRooms]) => (
+            <div key={floorLevel} className="flex flex-col gap-4">
+              <h3 className="text-lg font-semibold tracking-tight border-b pb-2">
+                Piso {floorLevel}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {floorRooms.map((room) => (
+                  <RoomCard key={room.id} room={room} onDeleted={handleDeleted} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
