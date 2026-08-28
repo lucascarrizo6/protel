@@ -164,7 +164,7 @@ export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
             />
           </div>
           
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "")}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
