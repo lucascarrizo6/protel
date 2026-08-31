@@ -40,6 +40,7 @@ export type StayRow = {
   roomNumber: string;
   checkIn: string;
   checkOut: string;
+  vip: boolean;
 };
 
 export type DashboardData = {
@@ -217,6 +218,10 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     roomNumber: reservation.room.number,
     checkIn: reservation.checkIn.toISOString(),
     checkOut: reservation.checkOut.toISOString(),
+    vip:
+      profileByKey.get(
+        guestProfileKey(reservation.documentType, reservation.dni)
+      )?.vip ?? false,
   }));
 
   const stayovers = inHouse.filter(

@@ -200,6 +200,13 @@ export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
               <p className="mt-1 text-base font-semibold text-foreground">
                 {formatCurrency(target?.amount ?? 0)}
               </p>
+              {target && target.amount > 0 && target.nights > 0 ? (
+                <p className="mt-0.5 text-xs">
+                  {target.nights} noche(s) ×{" "}
+                  {formatCurrency(target.amount / target.nights)}. El total se
+                  calcula solo, no se edita.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">

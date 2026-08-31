@@ -885,6 +885,13 @@ export function ReservationsView({
               <p className="mt-1 text-base font-semibold text-foreground">
                 {formatCurrency(checkinAmount)}
               </p>
+              {!checkinReservation?.groupMember?.esFree ? (
+                <p className="mt-0.5 text-xs">
+                  {checkinNights} noche(s) ×{" "}
+                  {formatCurrency(checkinReservation?.room.pricePerNight ?? 0)}.
+                  El total se calcula solo, no se edita.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">

@@ -1,3 +1,4 @@
+import { Star } from "lucide-react";
 import type { StayRow } from "@/lib/dashboard-data";
 import { formatDate } from "@/lib/format-date";
 import { WidgetShell, WidgetEmpty } from "./widget-shell";
@@ -21,6 +22,12 @@ function StayList({
         >
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium leading-tight">
+              {stay.vip ? (
+                <Star
+                  className="mr-1 inline size-3 -translate-y-px fill-amber-400 text-amber-400"
+                  aria-label="VIP"
+                />
+              ) : null}
               {stay.guestName}
             </p>
             <p className="text-[11px] text-muted-foreground">
