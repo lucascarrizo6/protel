@@ -102,7 +102,13 @@ export function AppSidebar({
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  const visibleNavItems = navItems.filter((item) => {
+const visibleNavItems = navItems.filter((item) => {
+    // 1. Regla estricta para Mucamas: SOLO ven su módulo
+    if (role === "HOUSEKEEPING") {
+      return item.moduleKey === "mucama";
+    }
+
+    // 2. Reglas normales para Administradores y Super Admins
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
       return false;
     }
