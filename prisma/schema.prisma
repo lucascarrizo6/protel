@@ -110,6 +110,7 @@ model Hotel {
   invoices          Invoice[]
   groups            Group[]
   maintenanceIssues MaintenanceIssue[]
+  guestProfiles     GuestProfile[]
   afipConfig        AfipConfig?
   modules           HotelModules?
 }
@@ -302,6 +303,25 @@ model AfipConfig {
 
   hotelId String @unique
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
+}
+
+model GuestProfile {
+  id            String       @id @default(cuid())
+  dni           String
+  documentType  DocumentType @default(DNI)
+  prefRecepcion String?
+  prefMucama    String?
+  prefCocina    String?
+  vip           Boolean      @default(false)
+  vipMotivo     String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  @@unique([hotelId, documentType, dni])
+  @@index([hotelId])
 }
 
 model LoginAttempt {

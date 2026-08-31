@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, Star, X } from "lucide-react";
 import type {
   GroupMember,
   Reservation,
@@ -58,6 +58,12 @@ import {
 import { nightsBetween } from "@/lib/nights-between";
 import { DOCUMENT_TYPES, formatDocumentType } from "@/lib/document-type";
 import { PAYMENT_METHODS, formatPaymentMethod } from "@/lib/payment-method";
+import {
+  guestProfileHasNotice,
+  guestProfileKey,
+  type GuestProfileDTO,
+} from "@/lib/guest-profile";
+import { GuestPreferencesNotice } from "@/components/dashboard/guest-preferences-notice";
 
 type ReservationWithRoom = Reservation & {
   room: Room;
@@ -74,13 +80,32 @@ function isCheckInAllowed(reservation: ReservationWithRoom): boolean {
 export function ReservationsView({
   initialReservations,
   rooms,
+  guestProfiles,
 }: {
   initialReservations: ReservationWithRoom[];
   rooms: Room[];
+  guestProfiles: GuestProfileDTO[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [reservations, setReservations] = useState(initialReservations);
+
+  const profileByKey = useMemo(
+    () =>
+      new Map(
+        guestProfiles.map((profile) => [
+          guestProfileKey(profile.documentType, profile.dni),
+          profile,
+        ])
+      ),
+    [guestProfiles]
+  );
+
+  function profileFor(reservation: ReservationWithRoom) {
+    return profileByKey.get(
+      guestProfileKey(reservation.documentType, reservation.dni)
+    );
+  }
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [dni, setDni] = useState("");
@@ -102,6 +127,9 @@ export function ReservationsView({
   const [extraMonto, setExtraMonto] = useState("");
   const [isSavingExtras, setIsSavingExtras] = useState(false);
   const [extrasError, setExtrasError] = useState<string | null>(null);
+
+  const [prefsReservation, setPrefsReservation] =
+    useState<ReservationWithRoom | null>(null);
 
   const [checkinReservation, setCheckinReservation] =
     useState<ReservationWithRoom | null>(null);
@@ -217,6 +245,16 @@ export function ReservationsView({
     setCheckinPaymentMethod("");
     setCheckinError(null);
     setIsRedirectingToMp(false);
+  }
+
+  // Antes del cobro: si el huésped tiene perfil (VIP o preferencias), primero
+  // muestra el aviso y recién al cerrarlo abre el check-in.
+  function startCheckIn(reservation: ReservationWithRoom) {
+    if (guestProfileHasNotice(profileFor(reservation))) {
+      setPrefsReservation(reservation);
+    } else {
+      openCheckIn(reservation);
+    }
   }
 
   async function confirmCheckIn() {
@@ -596,6 +634,12 @@ export function ReservationsView({
                 return (
                   <TableRow key={reservation.id}>
                     <TableCell className="font-medium">
+                      {profileFor(reservation)?.vip ? (
+                        <Star
+                          className="mr-1 inline size-3.5 -translate-y-px fill-amber-400 text-amber-400"
+                          aria-label="Huésped VIP"
+                        />
+                      ) : null}
                       {reservation.guestName}
                       {reservation.groupMember?.esFree ? (
                         <Badge variant="secondary" className="ml-2">
@@ -645,7 +689,7 @@ export function ReservationsView({
                               variant="outline"
                               className="border-green-600/30 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
                               disabled={isPending}
-                              onClick={() => openCheckIn(reservation)}
+                              onClick={() => startCheckIn(reservation)}
                             >
                               Check-in
                             </Button>
@@ -772,6 +816,43 @@ export function ReservationsView({
             </Button>
             <Button onClick={saveExtras} disabled={isSavingExtras}>
               {isSavingExtras ? "Guardando…" : "Guardar extras"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={prefsReservation !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPrefsReservation(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Antes del check-in de {prefsReservation?.guestName}
+            </DialogTitle>
+            <DialogDescription>
+              Este huésped tiene indicaciones cargadas. Tenelas presentes al
+              recibirlo.
+            </DialogDescription>
+          </DialogHeader>
+
+          {prefsReservation ? (
+            <GuestPreferencesNotice
+              profile={profileFor(prefsReservation) ?? null}
+            />
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const reservation = prefsReservation;
+                setPrefsReservation(null);
+                if (reservation) openCheckIn(reservation);
+              }}
+            >
+              Entendido, seguir al cobro
             </Button>
           </DialogFooter>
         </DialogContent>

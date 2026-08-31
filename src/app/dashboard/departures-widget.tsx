@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Star } from "lucide-react";
 import type { DepartureRow } from "@/lib/dashboard-data";
 import { formatCurrency } from "@/lib/format-currency";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,12 @@ export function DeparturesWidget({
             >
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium leading-tight">
+                  {departure.vip ? (
+                    <Star
+                      className="mr-1 inline size-3 -translate-y-px fill-amber-400 text-amber-400"
+                      aria-label="VIP"
+                    />
+                  ) : null}
                   {departure.guestName}
                   {departure.overdue ? (
                     <Badge

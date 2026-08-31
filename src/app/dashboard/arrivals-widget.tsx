@@ -3,10 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Star } from "lucide-react";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 import type { ArrivalRow } from "@/lib/dashboard-data";
 import { formatCurrency } from "@/lib/format-currency";
 import { PAYMENT_METHODS, formatPaymentMethod } from "@/lib/payment-method";
+import {
+  guestProfileHasNotice,
+  type GuestProfileDTO,
+} from "@/lib/guest-profile";
+import { GuestPreferencesNotice } from "@/components/dashboard/guest-preferences-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +33,22 @@ import {
 } from "@/components/ui/select";
 import { WidgetShell, WidgetEmpty } from "./widget-shell";
 
+function arrivalToProfile(arrival: ArrivalRow): GuestProfileDTO {
+  return {
+    dni: "",
+    documentType: "DNI",
+    prefRecepcion: arrival.prefRecepcion,
+    prefMucama: arrival.prefMucama,
+    prefCocina: arrival.prefCocina,
+    vip: arrival.vip,
+    vipMotivo: arrival.vipMotivo,
+  };
+}
+
 export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
   const router = useRouter();
   const [target, setTarget] = useState<ArrivalRow | null>(null);
+  const [prefsTarget, setPrefsTarget] = useState<ArrivalRow | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +57,14 @@ export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
     setTarget(arrival);
     setPaymentMethod("");
     setError(null);
+  }
+
+  function startCheckIn(arrival: ArrivalRow) {
+    if (guestProfileHasNotice(arrivalToProfile(arrival))) {
+      setPrefsTarget(arrival);
+    } else {
+      openCheckIn(arrival);
+    }
   }
 
   async function confirmCheckIn() {
@@ -84,6 +111,12 @@ export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
             >
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium leading-tight">
+                  {arrival.vip ? (
+                    <Star
+                      className="mr-1 inline size-3 -translate-y-px fill-amber-400 text-amber-400"
+                      aria-label="VIP"
+                    />
+                  ) : null}
                   {arrival.guestName}
                   {arrival.esFree ? (
                     <Badge
@@ -103,7 +136,7 @@ export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
                 size="sm"
                 variant="outline"
                 className="h-7 shrink-0 border-green-600/30 bg-green-100 px-2 text-xs text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
-                onClick={() => openCheckIn(arrival)}
+                onClick={() => startCheckIn(arrival)}
               >
                 Check-in
               </Button>
@@ -111,6 +144,41 @@ export function ArrivalsWidget({ arrivals }: { arrivals: ArrivalRow[] }) {
           ))}
         </ul>
       )}
+
+      <Dialog
+        open={prefsTarget !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPrefsTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Antes del check-in de {prefsTarget?.guestName}
+            </DialogTitle>
+            <DialogDescription>
+              Este huésped tiene indicaciones cargadas. Tenelas presentes al
+              recibirlo.
+            </DialogDescription>
+          </DialogHeader>
+
+          {prefsTarget ? (
+            <GuestPreferencesNotice profile={arrivalToProfile(prefsTarget)} />
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const arrival = prefsTarget;
+                setPrefsTarget(null);
+                if (arrival) openCheckIn(arrival);
+              }}
+            >
+              Entendido, seguir al cobro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={target !== null}

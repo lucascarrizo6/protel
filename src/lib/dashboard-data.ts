@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { parseExtras, sumExtras } from "@/lib/reservation-extras";
+import { guestProfileKey } from "@/lib/guest-profile";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -16,6 +17,11 @@ export type ArrivalRow = {
   nights: number;
   amount: number;
   esFree: boolean;
+  vip: boolean;
+  vipMotivo: string | null;
+  prefRecepcion: string | null;
+  prefMucama: string | null;
+  prefCocina: string | null;
 };
 
 export type DepartureRow = {
@@ -25,6 +31,7 @@ export type DepartureRow = {
   checkOut: string;
   overdue: boolean;
   extrasTotal: number;
+  vip: boolean;
 };
 
 export type StayRow = {
@@ -99,6 +106,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     inHouseRaw,
     tonightRooms,
     monthReservations,
+    guestProfiles,
   ] = await Promise.all([
     prisma.room.count({ where: { hotelId } }),
     prisma.reservation.count({
@@ -142,7 +150,26 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       },
       include: { room: true, groupMember: true },
     }),
+    prisma.guestProfile.findMany({
+      where: { hotelId },
+      select: {
+        dni: true,
+        documentType: true,
+        prefRecepcion: true,
+        prefMucama: true,
+        prefCocina: true,
+        vip: true,
+        vipMotivo: true,
+      },
+    }),
   ]);
+
+  const profileByKey = new Map(
+    guestProfiles.map((profile) => [
+      guestProfileKey(profile.documentType, profile.dni),
+      profile,
+    ])
+  );
 
   const arrivals: ArrivalRow[] = arrivalsRaw.map((reservation) => {
     const nights = Math.max(
@@ -153,6 +180,9 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       )
     );
     const esFree = reservation.groupMember?.esFree ?? false;
+    const profile = profileByKey.get(
+      guestProfileKey(reservation.documentType, reservation.dni)
+    );
     return {
       id: reservation.id,
       guestName: reservation.guestName,
@@ -160,6 +190,11 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       nights,
       amount: esFree ? 0 : nights * reservation.room.pricePerNight,
       esFree,
+      vip: profile?.vip ?? false,
+      vipMotivo: profile?.vipMotivo ?? null,
+      prefRecepcion: profile?.prefRecepcion ?? null,
+      prefMucama: profile?.prefMucama ?? null,
+      prefCocina: profile?.prefCocina ?? null,
     };
   });
 
@@ -170,6 +205,10 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     checkOut: reservation.checkOut.toISOString(),
     overdue: reservation.checkOut < startOfToday,
     extrasTotal: sumExtras(parseExtras(reservation.extras)),
+    vip:
+      profileByKey.get(
+        guestProfileKey(reservation.documentType, reservation.dni)
+      )?.vip ?? false,
   }));
 
   const inHouse: StayRow[] = inHouseRaw.map((reservation) => ({

@@ -1,12 +1,23 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { GuestProfileDTO } from "@/lib/guest-profile";
 import { ReservationsView } from "./reservations-view";
+
+const GUEST_PROFILE_SELECT = {
+  dni: true,
+  documentType: true,
+  prefRecepcion: true,
+  prefMucama: true,
+  prefCocina: true,
+  vip: true,
+  vipMotivo: true,
+} as const;
 
 export default async function ReservationsPage() {
   const session = await getServerSession(authOptions);
 
-  const [reservations, rooms] = session?.user.hotelId
+  const [reservations, rooms, guestProfiles] = session?.user.hotelId
     ? await Promise.all([
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId },
@@ -18,8 +29,12 @@ export default async function ReservationsPage() {
           where: { hotelId: session.user.hotelId },
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
+        prisma.guestProfile.findMany({
+          where: { hotelId: session.user.hotelId },
+          select: GUEST_PROFILE_SELECT,
+        }),
       ])
-    : [[], []];
+    : [[], [], []];
 
   return (
     <div className="flex flex-col gap-6">
@@ -30,7 +45,11 @@ export default async function ReservationsPage() {
         </p>
       </div>
 
-      <ReservationsView initialReservations={reservations} rooms={rooms} />
+      <ReservationsView
+        initialReservations={reservations}
+        rooms={rooms}
+        guestProfiles={guestProfiles as GuestProfileDTO[]}
+      />
     </div>
   );
 }
