@@ -5,6 +5,7 @@ export const USER_ROLES = [
   "HOTEL_ADMIN",
   "RECEPTIONIST",
   "HOUSEKEEPING",
+  "MAINTENANCE",
 ] as const satisfies readonly UserRole[];
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -12,6 +13,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   HOTEL_ADMIN: "Administrador de Hotel",
   RECEPTIONIST: "Recepcionista",
   HOUSEKEEPING: "Mucama",
+  MAINTENANCE: "Mantenimiento",
 };
 
 export function formatRole(role: UserRole): string {

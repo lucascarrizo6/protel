@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  Wrench,
 } from "lucide-react";
 import type { UserRole } from "@/generated/prisma/enums";
 import type { HotelModuleKey } from "@/lib/super-admin";
@@ -33,6 +34,13 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Inicio", href: "/dashboard", icon: Home, moduleKey: null },
   { title: "Habitaciones", href: "/dashboard/habitaciones", icon: BedDouble, moduleKey: null },
+  {
+    title: "Mantenimiento",
+    href: "/dashboard/mantenimiento",
+    icon: Wrench,
+    moduleKey: "mantenimiento",
+    roles: ["SUPER_ADMIN", "HOTEL_ADMIN", "RECEPTIONIST", "MAINTENANCE"],
+  },
   {
     title: "Reservas",
     href: "/dashboard/reservas",
