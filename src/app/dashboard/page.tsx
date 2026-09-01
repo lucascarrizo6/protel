@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
@@ -8,6 +9,12 @@ import { DashboardGrid } from "./dashboard-grid";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
+  
+  // BLOQUE DE SEGURIDAD: Expulsa a la mucama antes de que carguen los datos
+  if (session?.user?.role === "HOUSEKEEPING") {
+    redirect("/dashboard/mucama");
+  }
+
   const hotelId = session?.user.hotelId;
 
   const data = hotelId
