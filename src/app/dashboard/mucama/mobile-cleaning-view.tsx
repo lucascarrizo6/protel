@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, TriangleAlert, Info } from "lucide-react";
+import { CheckCircle2, TriangleAlert } from "lucide-react";
 import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
