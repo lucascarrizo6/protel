@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
             limpiadaHoy: false,
             notes: null,
             reason: null,
+            assignedToId: null //esto libera la tarea de limpieza para que pueda ser reasignada a otra mucama al otro dia
           },
           create: {
             status: "PENDIENTE",

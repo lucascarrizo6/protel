@@ -126,6 +126,8 @@ model User {
   hotelId String?
   hotel   Hotel?  @relation(fields: [hotelId], references: [id])
 
+  housekeepingTasks HousekeepingTask[]
+
   @@index([hotelId])
 }
 
@@ -166,6 +168,10 @@ model HousekeepingTask {
 
   roomId String @unique
   room   Room   @relation(fields: [roomId], references: [id])
+
+  //asignar tareas a la mucama
+  assignedToId String?
+  assignedTo   User?   @relation(fields: [assignedToId], references: [id])
 
   @@index([hotelId])
 }
