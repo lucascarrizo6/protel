@@ -104,7 +104,7 @@ export function DailyCleaning({
         <div className="flex items-center gap-4 bg-muted/50 p-4 rounded-lg border border-border print:hidden">
           <span className="text-sm font-medium">{selectedIds.size} seleccionadas</span>
           <div className="h-4 w-px bg-border mx-2" />
-          <Select value={selectedMucama} onValueChange={setSelectedMucama}>
+          <Select value={selectedMucama} onValueChange={(value) => setSelectedMucama(value ?? "")}>
             <SelectTrigger className="w-[200px] bg-background">
               <SelectValue placeholder="Asignar a..." />
             </SelectTrigger>
@@ -155,7 +155,8 @@ export function DailyCleaning({
                   {!isSuperAdmin && (
                     <TableHead className="w-12 text-center">
                       <Checkbox
-                        checked={allSelected || (indeterminate ? "indeterminate" : false)}
+                        checked={allSelected}
+                        indeterminate={indeterminate}
                         onCheckedChange={toggleAll}
                         aria-label="Seleccionar todas"
                       />
