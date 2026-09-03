@@ -153,25 +153,31 @@ const INVOICES: {
 ];
 
 async function main() {
-  // Nunca hardcodear contraseñas de las cuentas demo: se toman de env vars y,
+// Nunca hardcodear contraseñas de las cuentas demo: se toman de env vars y,
   // si no están seteadas, se genera una al azar y se loguea una única vez
   // (es la única forma de recuperarla, ya que no queda en texto plano en ningún lado).
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomUUID();
   const superPassword = process.env.SEED_SUPER_PASSWORD ?? crypto.randomUUID();
+  const mucamaPassword = process.env.SEED_MUCAMA_PASSWORD ?? crypto.randomUUID();
+  const mantenimientoPassword = process.env.SEED_MANTENIMIENTO_PASSWORD ?? crypto.randomUUID();
 
   if (!process.env.SEED_ADMIN_PASSWORD) {
-    console.log(
-      `SEED_ADMIN_PASSWORD no está seteada. Contraseña generada para admin@protel.dev: ${adminPassword}`
-    );
+    console.log(`SEED_ADMIN_PASSWORD no está seteada. Contraseña generada para admin@protel.dev: ${adminPassword}`);
   }
   if (!process.env.SEED_SUPER_PASSWORD) {
-    console.log(
-      `SEED_SUPER_PASSWORD no está seteada. Contraseña generada para superadmin@protel.dev: ${superPassword}`
-    );
+    console.log(`SEED_SUPER_PASSWORD no está seteada. Contraseña generada para superadmin@protel.dev: ${superPassword}`);
+  }
+  if (!process.env.SEED_MUCAMA_PASSWORD) {
+    console.log(`SEED_MUCAMA_PASSWORD no está seteada. Contraseña generada para mucama@protel.dev: ${mucamaPassword}`);
+  }
+  if (!process.env.SEED_MANTENIMIENTO_PASSWORD) {
+    console.log(`SEED_MANTENIMIENTO_PASSWORD no está seteada. Contraseña generada para mantenimiento@protel.dev: ${mantenimientoPassword}`);
   }
 
   const adminPasswordHash = await hashPassword(adminPassword);
   const superPasswordHash = await hashPassword(superPassword);
+  const mucamaPasswordHash = await hashPassword(mucamaPassword);
+  const mantenimientoPasswordHash = await hashPassword(mantenimientoPassword);
 
   const hotel = await prisma.hotel.upsert({
     where: { slug: "hotel-demo" },
@@ -200,6 +206,32 @@ async function main() {
       passwordHash: superPasswordHash,
       role: "SUPER_ADMIN",
       hotelId: null,
+    },
+  });
+
+  // Nueva cuenta para Mucama
+  await prisma.user.upsert({
+    where: { email: "mucama@protel.dev" },
+    update: { name: "Usuario Mucama", passwordHash: mucamaPasswordHash },
+    create: {
+      name: "Usuario Mucama",
+      email: "mucama@protel.dev",
+      passwordHash: mucamaPasswordHash,
+      role: "HOUSEKEEPING",
+      hotelId: hotel.id,
+    },
+  });
+
+  // Nueva cuenta para Mantenimiento
+  await prisma.user.upsert({
+    where: { email: "mantenimiento@protel.dev" },
+    update: { name: "Usuario Mantenimiento", passwordHash: mantenimientoPasswordHash },
+    create: {
+      name: "Usuario Mantenimiento",
+      email: "mantenimiento@protel.dev",
+      passwordHash: mantenimientoPasswordHash,
+      role: "MAINTENANCE",
+      hotelId: hotel.id,
     },
   });
 

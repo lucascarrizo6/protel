@@ -12,7 +12,7 @@ import type { MaintenanceSeverity } from "@/generated/prisma/enums";
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user.hotelId) {
+  if (!session?.user?.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
   if (!canManageMaintenance(session.user.role)) {
@@ -20,15 +20,20 @@ export async function GET(request: NextRequest) {
   }
 
   const estado = request.nextUrl.searchParams.get("estado");
-  const status = estado === "resuelto" ? "RESUELTO" : "ABIERTO";
+  // Adaptado a la nueva máquina de estados
+  const statusFilter = estado === "resuelto" 
+    ? { equals: "RESUELTO" } 
+    : { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] };
 
   const issues = await prisma.maintenanceIssue.findMany({
-    where: { hotelId: session.user.hotelId, status },
+    where: { 
+      hotelId: session.user.hotelId, 
+      status: statusFilter 
+    },
     include: { room: { select: { number: true, floor: true } } },
-    orderBy:
-      status === "ABIERTO"
-        ? [{ severity: "asc" }, { createdAt: "asc" }]
-        : [{ resolvedAt: "desc" }],
+    orderBy: estado === "resuelto"
+      ? [{ resolvedAt: "desc" }]
+      : [{ severity: "asc" }, { createdAt: "asc" }],
   });
 
   return NextResponse.json(issues);
@@ -37,58 +42,57 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user.hotelId) {
+  if (!session?.user?.hotelId || !session?.user?.id) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
-  if (!canManageMaintenance(session.user.role)) {
+
+  // Permitimos a las mucamas crear tickets, pero mantenemos las restricciones para el resto
+  const isHousekeeping = session.user.role === "HOUSEKEEPING";
+  if (!isHousekeeping && !canManageMaintenance(session.user.role)) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
   const roomId = typeof body?.roomId === "string" ? body.roomId : "";
   const titulo = typeof body?.titulo === "string" ? body.titulo.trim() : "";
-  const detalleRaw =
-    typeof body?.detalle === "string" ? body.detalle.trim() : "";
+  const detalleRaw = typeof body?.detalle === "string" ? body.detalle.trim() : "";
   const severity = body?.severity as MaintenanceSeverity | undefined;
-  const reportadoPorRaw =
-    typeof body?.reportadoPor === "string" ? body.reportadoPor.trim() : "";
 
   if (!titulo) {
-    return NextResponse.json(
-      { error: "Escribí qué problema tiene la habitación." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Escribí qué problema tiene la habitación." }, { status: 400 });
   }
   if (!severity || !MAINTENANCE_SEVERITIES.includes(severity)) {
-    return NextResponse.json(
-      { error: "Elegí la gravedad: rojo, naranja o amarillo." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Elegí la gravedad: ROJO, NARANJA o AMARILLO." }, { status: 400 });
   }
 
   const room = await prisma.room.findUnique({ where: { id: roomId } });
   if (!room || room.hotelId !== session.user.hotelId) {
-    return NextResponse.json(
-      { error: "Habitación no encontrada." },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Habitación no encontrada." }, { status: 404 });
   }
 
-  const data = {
+  // Objeto base del ticket con la creación del historial inyectada
+  const issueData = {
     titulo,
     detalle: detalleRaw.length === 0 ? null : detalleRaw,
     severity,
-    reportadoPor:
-      reportadoPorRaw.length > 0 ? reportadoPorRaw : session.user.name ?? null,
+    status: "PENDIENTE",
+    reportadoPor: session.user.id,
     hotelId: session.user.hotelId,
     roomId: room.id,
+    history: {
+      create: {
+        action: "TICKET_CREADO",
+        notes: isHousekeeping ? "Reportado desde la aplicación móvil de limpieza" : "Reportado manualmente",
+        userId: session.user.id,
+      },
+    },
   };
 
-  // Rojo y naranja sacan la habitación de servicio.
+  // Lógica original conservada: Bloqueo automático de habitación
   if (severityBlocksRoom(severity)) {
     const [issue] = await prisma.$transaction([
       prisma.maintenanceIssue.create({
-        data,
+        data: issueData as any,
         include: { room: { select: { number: true, floor: true } } },
       }),
       prisma.room.update({
@@ -100,8 +104,9 @@ export async function POST(request: NextRequest) {
   }
 
   const issue = await prisma.maintenanceIssue.create({
-    data,
+    data: issueData as any,
     include: { room: { select: { number: true, floor: true } } },
   });
+  
   return NextResponse.json(issue, { status: 201 });
 }

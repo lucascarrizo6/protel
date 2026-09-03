@@ -9,6 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { formatRoomStatus, roomStatusBadgeClassName } from "@/lib/room-status";
 import { parseExtras } from "@/lib/reservation-extras";
+import { ReportIssueDialog } from "@/components/dashboard/report-issue-dialog";
 
 type RoomWithDaily = Room & {
   housekeepingTask: HousekeepingTask | null;
@@ -136,7 +137,7 @@ export function MobileCleaningView({
                       />
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex flex-col gap-2">
                     <Button 
                       className="w-full h-14 text-lg" 
                       onClick={() => updateStatus(room.id)}
@@ -145,6 +146,11 @@ export function MobileCleaningView({
                       <CheckCircle2 className="mr-2 size-6" />
                       {updatingId === room.id ? "Marcando..." : "Marcar Limpia"}
                     </Button>
+                    
+                    {/* Botón secundario para reportar falla */}
+                    <div className="w-full flex justify-center">
+                      <ReportIssueDialog hotelId={room.hotelId} roomId={room.id} />
+                    </div>
                   </CardFooter>
                 </Card>
               );
