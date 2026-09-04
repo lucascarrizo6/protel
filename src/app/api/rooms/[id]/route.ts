@@ -43,6 +43,21 @@ export async function PATCH(
     },
   });
 
+// 👇 LÓGICA AUTOMÁTICA CORREGIDA 👇
+  if (status === "CLEANING") {
+    // Actualizamos directo por roomId, sin usar fechas
+    await prisma.housekeepingTask.updateMany({
+      where: { 
+        roomId: params.id 
+      },
+      data: { 
+        limpiadaHoy: false, 
+        status: "PENDIENTE" 
+      }
+    });
+  }
+  // 👆 FIN DE LA LÓGICA 👆
+
   return NextResponse.json(updatedRoom);
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { CheckCircle2, Printer, Search, TriangleAlert } from "lucide-react";
 import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,10 @@ export function DailyCleaning({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedMucama, setSelectedMucama] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
+
+  useEffect(() => {
+    setRooms(initialRooms);
+  }, [initialRooms]);
 
   // BUG ARREGLADO: Ahora filtramos sobre "rooms" (estado dinámico) y no sobre "initialRooms" (estado fijo).
   const filteredRooms = useMemo(() => {

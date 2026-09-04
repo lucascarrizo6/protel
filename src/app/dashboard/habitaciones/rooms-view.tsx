@@ -1,6 +1,5 @@
 "use client";
-
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useEffect, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import type { Room } from "@/generated/prisma/client";
 import type { RoomStatus } from "@/generated/prisma/enums";
@@ -45,6 +44,12 @@ const ROOM_TYPES = [
 
 export function RoomsView({ initialRooms }: { initialRooms: Room[] }) {
   const [rooms, setRooms] = useState(initialRooms);
+  
+  // Sincronización automática con el servidor (Smart Polling)
+  useEffect(() => {
+    setRooms(initialRooms);
+  }, [initialRooms]);
+  console.log("💻 CLIENTE: Recibiendo", initialRooms.map(r => `${r.number}:${r.status}`));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 

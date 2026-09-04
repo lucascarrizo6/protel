@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { CheckCircle2, TriangleAlert, Info } from "lucide-react";
 import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,10 @@ export function MobileCleaningView({
   const [rooms, setRooms] = useState(initialRooms);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setRooms(initialRooms);
+  }, [initialRooms]);
 
   const activeRooms = useMemo(() => {
     return rooms.filter((room) => room.housekeepingTask?.limpiadaHoy !== true);

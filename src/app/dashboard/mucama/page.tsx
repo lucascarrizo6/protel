@@ -1,12 +1,17 @@
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyCleaning } from "./daily-cleaning";
 import { MobileCleaningView } from "./mobile-cleaning-view";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function MucamaPage() {
   const session = await getServerSession(authOptions);
+  const role = session?.user?.role;
+  const isMucama = role === "HOUSEKEEPING";
+  const isSuperAdmin = role === "SUPER_ADMIN";
 
   const [rooms, activeReservations, mucamas] = session?.user.hotelId
     ? await Promise.all([
@@ -34,10 +39,9 @@ export default async function MucamaPage() {
     activeReservation: reservationByRoomId.get(room.id) ?? null,
   }));
 
-  const isMucama = session?.user.role === "HOUSEKEEPING";
-
   return (
     <div className="flex flex-col gap-6">
+      <AutoRefresh interval={5000} />
       <div className="flex flex-col gap-1 print:hidden">
         <h1 className="text-2xl font-semibold tracking-tight">
           {isMucama ? "Mis Tareas" : "Mucama"}
@@ -61,7 +65,11 @@ export default async function MucamaPage() {
       ) : isMucama ? (
         <MobileCleaningView initialRooms={roomsWithDaily} currentUserId={session?.user.id} />
       ) : (
-        <DailyCleaning initialRooms={roomsWithDaily} mucamas={mucamas} />
+        <DailyCleaning 
+          initialRooms={roomsWithDaily} 
+          mucamas={mucamas} 
+          isSuperAdmin={isSuperAdmin} 
+        />
       )}
     </div>
   );

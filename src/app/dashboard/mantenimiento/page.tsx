@@ -15,8 +15,7 @@ export default async function MantenimientoPage() {
 
   const [openRaw, resolvedRaw, rooms] = await Promise.all([
     prisma.maintenanceIssue.findMany({
-      where: { hotelId, status: "ABIERTO" },
-      include: { room: { select: { number: true, floor: true } } },
+where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },      include: { room: { select: { number: true, floor: true } } },
       orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
     }),
     prisma.maintenanceIssue.findMany({

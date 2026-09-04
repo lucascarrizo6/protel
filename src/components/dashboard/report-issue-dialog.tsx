@@ -58,8 +58,8 @@ export function ReportIssueDialog({ roomId, hotelId }: { roomId: string, hotelId
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">Reportar Falla</Button>
+      <DialogTrigger render={<Button variant="outline" />}>
+        Reportar falla
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
