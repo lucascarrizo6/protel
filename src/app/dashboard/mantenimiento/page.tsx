@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canManageMaintenance } from "@/lib/maintenance";
 import { MaintenanceView, type MaintenanceIssueDTO } from "./maintenance-view";
+import { MobileMaintenanceView } from "./mobile-maintenance-view";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function MantenimientoPage() {
   const session = await getServerSession(authOptions);
@@ -13,14 +15,18 @@ export default async function MantenimientoPage() {
     redirect("/dashboard");
   }
 
+  // Identificamos si el usuario es estrictamente el técnico
+  const isMaintenanceUser = session.user.role === "MAINTENANCE";
+
   const [openRaw, resolvedRaw, rooms] = await Promise.all([
     prisma.maintenanceIssue.findMany({
-where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },      include: { room: { select: { number: true, floor: true } } },
+      where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },
+      include: { room: true },
       orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
     }),
     prisma.maintenanceIssue.findMany({
       where: { hotelId, status: "RESUELTO" },
-      include: { room: { select: { number: true, floor: true } } },
+      include: { room: true },
       orderBy: [{ resolvedAt: "desc" }],
       take: 40,
     }),
@@ -47,20 +53,31 @@ where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },   
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Mantenimiento</h1>
-        <p className="text-sm text-muted-foreground">
-          Problemas de cada habitación. Cargá lo que encuentres con su gravedad y
-          marcá arreglado cuando se resuelva.
-        </p>
-      </div>
+      <AutoRefresh interval={5000} />
 
-      <MaintenanceView
-        openIssues={openRaw.map(serialize)}
-        resolvedIssues={resolvedRaw.map(serialize)}
-        rooms={rooms}
-        currentUserName={session.user.name ?? ""}
-      />
+      {!isMaintenanceUser && (
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Mantenimiento</h1>
+          <p className="text-sm text-muted-foreground">
+            Problemas de cada habitación. Cargá lo que encuentres con su gravedad y
+            marcá arreglado cuando se resuelva.
+          </p>
+        </div>
+      )}
+
+      {isMaintenanceUser ? (
+        <MobileMaintenanceView
+          initialIssues={openRaw}
+          currentUserId={session.user.id}
+        />
+      ) : (
+        <MaintenanceView
+          openIssues={openRaw.map(serialize)}
+          resolvedIssues={resolvedRaw.map(serialize)}
+          rooms={rooms}
+          currentUserName={session.user.name ?? ""}
+        />
+      )}
     </div>
   );
 }
