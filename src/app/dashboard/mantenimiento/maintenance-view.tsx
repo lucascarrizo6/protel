@@ -335,7 +335,12 @@ export function MaintenanceView({
                   <Label htmlFor="mnt-room">Habitación</Label>
                   <Select value={roomId} onValueChange={(value) => setRoomId(value ?? "")}>
                     <SelectTrigger id="mnt-room" className="w-full">
-                      <SelectValue placeholder="Elegí una habitación" />
+                      <SelectValue placeholder="Elegí una habitación">
+                        {/* Le decimos explícitamente qué texto mostrar cuando hay un ID seleccionado */}
+                        {roomId && rooms.find(r => r.id === roomId)
+                          ? `Hab. ${rooms.find(r => r.id === roomId)!.number} · Piso ${rooms.find(r => r.id === roomId)!.floor}`
+                          : "Elegí una habitación"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {rooms.map((room) => (
