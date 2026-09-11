@@ -21,9 +21,10 @@ export default async function HuespedesPage() {
 
   // Agrupado por DNI+tipo de documento en la propia query (CTE + DISTINCT ON)
   // en vez de traer todas las reservas con todas sus facturas y agregar en JS.
-  const [guestRows, profiles] = hotelId
-    ? await Promise.all([
-        prisma.$queryRaw<GuestRow[]>`
+  // TODO: reactivar la carga de GuestProfile (preferencias/VIP) cuando exista
+  // el modelo en el schema. Por ahora la página se arma solo con Reservation.
+  const guestRows = hotelId
+    ? await prisma.$queryRaw<GuestRow[]>`
           WITH guest_stats AS (
             SELECT
               r."dni" AS "dni",
@@ -50,28 +51,10 @@ export default async function HuespedesPage() {
             AND r."checkOut" = gs."lastVisit"
             AND r."hotelId" = ${hotelId}
           ORDER BY gs."dni", gs."documentType", r."checkOut" DESC, r."id" DESC
-        `,
-        prisma.guestProfile.findMany({
-          where: { hotelId },
-          select: {
-            dni: true,
-            documentType: true,
-            prefRecepcion: true,
-            prefMucama: true,
-            prefCocina: true,
-            vip: true,
-            vipMotivo: true,
-          },
-        }),
-      ])
-    : [[], []];
+        `
+    : [];
 
-  const profileByKey = new Map(
-    (profiles as GuestProfileDTO[]).map((profile) => [
-      guestProfileKey(profile.documentType, profile.dni),
-      profile,
-    ])
-  );
+  const profileByKey = new Map<string, GuestProfileDTO>();
 
   const guests: GuestRowDTO[] = guestRows
     .map((row) => ({
