@@ -560,6 +560,7 @@ export function ReservationsView({
                       id="checkIn"
                       type="date"
                       required
+                      min={new Date().toLocaleDateString("en-CA")}
                       value={checkIn}
                       onChange={(event) => setCheckIn(event.target.value)}
                     />
@@ -570,6 +571,7 @@ export function ReservationsView({
                       id="checkOut"
                       type="date"
                       required
+                      min={checkIn || new Date().toLocaleDateString("en-CA")}
                       value={checkOut}
                       onChange={(event) => setCheckOut(event.target.value)}
                     />
