@@ -56,11 +56,14 @@ import { formatDate } from "@/lib/format-date";
 import { formatRole, USER_ROLES } from "@/lib/format-role";
 import { slugify } from "@/lib/slugify";
 import {
+  BILLING_STATUS_BADGE_CLASS,
+  BILLING_STATUS_LABELS,
   DEFAULT_HOTEL_MODULES,
   HOTEL_MODULE_KEYS,
   HOTEL_MODULE_LABELS,
   type HotelModuleKey,
 } from "@/lib/super-admin";
+import { BillingPanel, type HotelBillingDTO } from "./billing-panel";
 
 type HotelModulesData = Record<HotelModuleKey, boolean>;
 
@@ -70,6 +73,7 @@ type HotelSummary = {
   activo: boolean;
   _count: { usuarios: number };
   modules: HotelModulesData | null;
+  billing: HotelBillingDTO;
 };
 
 type UsuarioSummary = {
@@ -89,7 +93,9 @@ export function SuperAdminView({
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(
     initialHotels[0]?.id ?? null
   );
-  const [tab, setTab] = useState<"modulos" | "usuarios">("modulos");
+  const [tab, setTab] = useState<"modulos" | "facturacion" | "usuarios">(
+    "modulos"
+  );
   const [togglingHotelId, setTogglingHotelId] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<HotelModuleKey | null>(
     null
@@ -278,10 +284,19 @@ export function SuperAdminView({
   }
 
   function handleTabChange(value: string) {
-    setTab(value as "modulos" | "usuarios");
+    setTab(value as "modulos" | "facturacion" | "usuarios");
     if (value === "usuarios" && selectedHotel && usuariosHotelId !== selectedHotel.id) {
       loadUsuarios(selectedHotel.id);
     }
+  }
+
+  function handleBillingUpdated(
+    hotelId: string,
+    billing: NonNullable<HotelBillingDTO>
+  ) {
+    setHotels((prev) =>
+      prev.map((h) => (h.id === hotelId ? { ...h, billing } : h))
+    );
   }
 
   async function handleRoleChange(usuario: UsuarioSummary, rol: UserRole) {
@@ -439,6 +454,18 @@ export function SuperAdminView({
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
+                    {hotel.billing?.plan || "Sin plan cargado"}
+                  </span>
+                  <Badge
+                    className={
+                      BILLING_STATUS_BADGE_CLASS[hotel.billing?.status ?? "PENDIENTE"]
+                    }
+                  >
+                    {BILLING_STATUS_LABELS[hotel.billing?.status ?? "PENDIENTE"]}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
                     {hotel._count.usuarios} usuario(s)
                   </span>
                   <div onClick={(event) => event.stopPropagation()}>
@@ -471,6 +498,7 @@ export function SuperAdminView({
           <Tabs value={tab} onValueChange={handleTabChange}>
             <TabsList>
               <TabsTrigger value="modulos">Módulos</TabsTrigger>
+              <TabsTrigger value="facturacion">Facturación</TabsTrigger>
               <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
             </TabsList>
 
@@ -506,6 +534,17 @@ export function SuperAdminView({
                   ))}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="facturacion">
+              <BillingPanel
+                hotelId={selectedHotel.id}
+                hotelNombre={selectedHotel.nombre}
+                billing={selectedHotel.billing}
+                onUpdated={(billing) =>
+                  handleBillingUpdated(selectedHotel.id, billing)
+                }
+              />
             </TabsContent>
 
             <TabsContent value="usuarios">

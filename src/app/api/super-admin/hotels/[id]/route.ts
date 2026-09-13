@@ -38,6 +38,7 @@ export async function PATCH(
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
   });
 

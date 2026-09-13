@@ -97,6 +97,14 @@ enum AfipAmbiente {
   PRODUCCION
 }
 
+// Lo que nos paga CADA HOTEL a nosotros por usar Hotar — no confundir con
+// AfipConfig, que es la facturación del hotel a SUS huéspedes.
+enum BillingStatus {
+  AL_DIA
+  PENDIENTE
+  VENCIDO
+}
+
 model Hotel {
   id        String   @id @default(cuid())
   name      String
@@ -116,6 +124,7 @@ model Hotel {
   employees         Employee[]
   afipConfig        AfipConfig?
   modules           HotelModules?
+  billing           HotelBilling?
 }
 
 model User {
@@ -379,6 +388,22 @@ model Employee {
 
   @@index([hotelId])
   @@index([hotelId, activo])
+}
+
+model HotelBilling {
+  id                 String        @id @default(cuid())
+  plan               String?
+  monto              Float?
+  status             BillingStatus @default(PENDIENTE)
+  ultimoPago         DateTime?
+  proximoVencimiento DateTime?
+  notas              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotelId String @unique
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
 }
 
 model LoginAttempt {

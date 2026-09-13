@@ -16,6 +16,7 @@ export async function GET() {
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -51,10 +52,11 @@ export async function POST(request: NextRequest) {
   }
 
   const hotel = await prisma.hotel.create({
-    data: { name, slug, modules: { create: {} } },
+    data: { name, slug, modules: { create: {} }, billing: { create: {} } },
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
   });
 

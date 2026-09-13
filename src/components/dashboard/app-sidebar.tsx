@@ -119,19 +119,24 @@ export function AppSidebar({
   const isCollapsed = state === "collapsed";
 
 const visibleNavItems = navItems.filter((item) => {
-    // 1. Reglas estrictas para roles operativos: SOLO ven su módulo
+    // 1. Reglas estrictas para roles de área única: SOLO ven su pantalla
     if (role === "HOUSEKEEPING") {
       return item.moduleKey === "mucama";
     }
     if (role === "MAINTENANCE") {
       return item.moduleKey === "mantenimiento";
     }
+    if (role === "SUPER_ADMIN") {
+      // No administra la operación de ningún hotel puntual (no tiene
+      // hotelId): solo ve su propio panel, con los hoteles y — ahora — lo
+      // que cada uno le paga a Hotar.
+      return item.href === "/dashboard/super-admin";
+    }
 
-    // 2. Reglas normales para Administradores, Recepcionistas y Super Admins
+    // 2. Reglas normales para Administradores y Recepcionistas
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
       return false;
     }
-    if (role === "SUPER_ADMIN") return true;
     if (item.moduleKey && hotelModules?.[item.moduleKey as HotelModuleKey] === false) {
       return false;
     }

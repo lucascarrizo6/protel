@@ -6,6 +6,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { DailyCleaning } from "./daily-cleaning";
 import { MobileCleaningView } from "./mobile-cleaning-view";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { getScopedHome } from "@/lib/staff-scope";
 
 export default async function MucamaPage() {
   const session = await getServerSession(authOptions);
@@ -13,10 +14,11 @@ export default async function MucamaPage() {
   const isMucama = role === "HOUSEKEEPING";
   const isSuperAdmin = role === "SUPER_ADMIN";
 
-  // Mantenimiento tiene su propia área única; Mucama es la única excepción
-  // que sí "vive" acá, así que no usamos getScopedHome genérico en esta página.
-  if (session?.user.role === "MAINTENANCE") {
-    redirect("/dashboard/mantenimiento");
+  // Mucama es la única "área única" que sí vive en esta pantalla, así que
+  // solo redirigimos si el rol tiene un área única DISTINTA de esta.
+  const scopedHome = getScopedHome(role);
+  if (scopedHome && scopedHome !== "/dashboard/mucama") {
+    redirect(scopedHome);
   }
 
   const [rooms, activeReservations, mucamas] = session?.user.hotelId

@@ -66,9 +66,12 @@ export function severityBlocksRoom(severity: MaintenanceSeverity): boolean {
   return severity === "ROJO" || severity === "NARANJA";
 }
 
-/** Quiénes pueden ver y gestionar la pestaña de Mantenimiento. */
+/**
+ * Quiénes pueden ver y gestionar la pestaña de Mantenimiento. Super Admin
+ * queda afuera a propósito: no administra la operación de ningún hotel
+ * puntual.
+ */
 export const MAINTENANCE_ROLES: readonly UserRole[] = [
-  "SUPER_ADMIN",
   "HOTEL_ADMIN",
   "RECEPTIONIST",
   "MAINTENANCE",
