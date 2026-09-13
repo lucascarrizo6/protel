@@ -187,7 +187,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     return {
       id: reservation.id,
       guestName: reservation.guestName,
-      roomNumber: reservation.room?.number??'Sin asignar',
+      roomNumber: reservation.room?.number ?? 'Sin asignar',
       nights,
       amount: esFree ? 0 : nights * (reservation.room?.pricePerNight ?? 0),
       esFree,
@@ -202,7 +202,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
   const departures: DepartureRow[] = departuresRaw.map((reservation) => ({
     id: reservation.id,
     guestName: reservation.guestName,
-    roomNumber: reservation.room.number,
+    roomNumber: reservation.room?.number ?? 'Sin asignar',
     checkOut: reservation.checkOut.toISOString(),
     overdue: reservation.checkOut < startOfToday,
     extrasTotal: sumExtras(parseExtras(reservation.extras)),
@@ -215,7 +215,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
   const inHouse: StayRow[] = inHouseRaw.map((reservation) => ({
     id: reservation.id,
     guestName: reservation.guestName,
-    roomNumber: reservation.room.number,
+    roomNumber: reservation.room?.number ?? 'Sin asignar',
     checkIn: reservation.checkIn.toISOString(),
     checkOut: reservation.checkOut.toISOString(),
     vip:
@@ -241,7 +241,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       startOfTomorrow
     );
     roomNights += nights;
-    roomRevenue += nights * reservation.room.pricePerNight;
+    roomRevenue += nights * (reservation.room?.pricePerNight ?? 0);
   }
 
   const daysElapsed = Math.max(
