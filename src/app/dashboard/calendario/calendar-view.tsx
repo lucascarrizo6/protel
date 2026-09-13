@@ -211,9 +211,10 @@ export function CalendarView({
   const reservationsByRoom = useMemo(() => {
     const map = new Map<string, ReservationWithRoom[]>();
     for (const reservation of reservations) {
-      const list = map.get(reservation.roomId) ?? [];
+      if (!reservation.roomId) continue;
+      const list = map.get(reservation.roomId!) ?? [];
       list.push(reservation);
-      map.set(reservation.roomId, list);
+      map.set(reservation.roomId!, list);
     }
     return map;
   }, [reservations]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type {
@@ -180,7 +180,6 @@ export function MaintenanceView({
   async function submitCloseIssue() {
     if (!closingIssue) return;
     
-    // Validaciones estrictas según el tipo de cierre
     if (closeType === "ANULAR" && !closeMotivo.trim()) {
       return toast.error("Debes ingresar un motivo para anular el reporte.");
     }
@@ -219,7 +218,7 @@ export function MaintenanceView({
       toast.success(closeType === "ANULAR" ? "Reporte anulado." : "Problema cerrado y archivado.");
       resetCloseForm();
       router.refresh();
-    } catch (err) {
+    } catch {
       toast.error("No se pudo actualizar el problema.");
     } finally {
       setSaving(false);
@@ -238,12 +237,14 @@ export function MaintenanceView({
       
       toast.success("Ticket reabierto.");
       router.refresh();
-    } catch (err) {
+    } catch {
       toast.error("No se pudo actualizar.");
     } finally {
       setBusyId(null);
     }
   }
+
+  const SafeDialogTrigger = DialogTrigger as React.ElementType;
 
   return (
     <div className="flex flex-col gap-6">
@@ -327,9 +328,11 @@ export function MaintenanceView({
               if (!next) resetForm();
             }}
           >
-            <DialogTrigger asChild>
-              <Button size="sm">Nuevo problema</Button>
-            </DialogTrigger>
+            <SafeDialogTrigger asChild>
+              <div>
+                <Button size="sm">Nuevo problema</Button>
+              </div>
+            </SafeDialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nuevo problema de mantenimiento</DialogTitle>
@@ -566,4 +569,3 @@ export function MaintenanceView({
     </div>
   );
 }
-

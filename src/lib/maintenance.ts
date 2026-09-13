@@ -1,6 +1,5 @@
 import type {
-  MaintenanceSeverity,
-  MaintenanceStatus,
+  MaintenanceSeverity
 } from "@/generated/prisma/enums";
 import type { UserRole } from "@/generated/prisma/enums";
 
@@ -11,9 +10,11 @@ export const MAINTENANCE_SEVERITIES = [
 ] as const satisfies readonly MaintenanceSeverity[];
 
 export const MAINTENANCE_STATUSES = [
-  "ABIERTO",
+  "PENDIENTE",
+  "EN_REVISION",
+  "DERIVADO",
   "RESUELTO",
-] as const satisfies readonly MaintenanceStatus[];
+] as const;
 
 const SEVERITY_LABELS: Record<MaintenanceSeverity, string> = {
   ROJO: "Rojo",

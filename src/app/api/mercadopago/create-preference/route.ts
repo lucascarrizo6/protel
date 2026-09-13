@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
 
   const reservaId =
     typeof body?.reservaId === "string" ? body.reservaId : "";
+  const roomIdInput =
+    typeof body?.roomId === "string" ? body.roomId : "";
 
   if (!reservaId) {
     return NextResponse.json(
@@ -40,12 +42,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // El monto se calcula siempre server-side (noches × precio de la
-  // habitación), nunca se confía en un valor mandado por el cliente.
+  // Obtenemos la habitación de la relación o del input enviado por el frontend
+  let room = reservation.room;
+  if (!room && (roomIdInput || reservation.roomId)) {
+    room = await prisma.room.findUnique({
+      where: { id: roomIdInput || reservation.roomId! },
+    });
+  }
+
+  const pricePerNight = room?.pricePerNight ?? 0;
+  const roomNumber = room?.number ?? "A asignar";
+
+  // El monto se calcula de forma segura evitando nulos
   const monto = reservation.groupMember?.esFree
     ? 0
-    : nightsBetween(reservation.checkIn, reservation.checkOut) *
-      reservation.room.pricePerNight;
+    : nightsBetween(reservation.checkIn, reservation.checkOut) * pricePerNight;
 
   if (monto <= 0) {
     return NextResponse.json(
@@ -54,7 +65,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const concepto = `Alojamiento · Habitación ${reservation.room.number} · ${reservation.guestName}`;
+  const concepto = `Alojamiento · Habitación ${roomNumber} · ${reservation.guestName}`;
   const baseUrl = request.nextUrl.origin;
 
   try {

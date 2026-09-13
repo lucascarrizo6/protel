@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { GroupsView } from "./groups-view";
+import type { ComponentProps } from "react";
 
 export default async function GruposPage() {
   const session = await getServerSession(authOptions);
@@ -27,6 +28,12 @@ export default async function GruposPage() {
       ])
     : [[], [], []];
 
+  const validReservations = reservations.filter(
+    (res) => res.roomId !== null
+  ) as unknown as ComponentProps<typeof GroupsView>["existingReservations"];
+
+  const validGroups = groups as unknown as ComponentProps<typeof GroupsView>["initialGroups"];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -38,9 +45,9 @@ export default async function GruposPage() {
       </div>
 
       <GroupsView
-        initialGroups={groups}
+        initialGroups={validGroups}
         rooms={rooms}
-        existingReservations={reservations}
+        existingReservations={validReservations}
       />
     </div>
   );

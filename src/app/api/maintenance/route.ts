@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
 
   const estado = request.nextUrl.searchParams.get("estado");
   // Adaptado a la nueva máquina de estados
-  const statusFilter = estado === "resuelto" 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const statusFilter: any = estado === "resuelto" 
     ? { equals: "RESUELTO" } 
     : { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] };
 
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
   if (severityBlocksRoom(severity)) {
     const [issue] = await prisma.$transaction([
       prisma.maintenanceIssue.create({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: issueData as any,
         include: { room: { select: { number: true, floor: true } } },
       }),
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
   }
 
   const issue = await prisma.maintenanceIssue.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: issueData as any,
     include: { room: { select: { number: true, floor: true } } },
   });

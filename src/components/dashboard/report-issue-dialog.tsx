@@ -49,7 +49,7 @@ export function ReportIssueDialog({ roomId, hotelId }: { roomId: string, hotelId
       
       toast.success("Problema reportado a mantenimiento");
       setOpen(false);
-    } catch (error) {
+    } catch {
       toast.error("Hubo un error al enviar el reporte");
     } finally {
       setLoading(false);

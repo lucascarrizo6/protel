@@ -114,11 +114,6 @@ export async function POST(
   const amount = nightsBetween(checkIn, checkOut) * room.pricePerNight;
   const baseUrl = request.nextUrl.origin;
 
-  // Se genera el id de antemano (sin crear la fila todavía) para poder
-  // usarlo como external_reference de MercadoPago. La reserva sólo se
-  // persiste si la preferencia de pago se creó con éxito: si MercadoPago
-  // falla, no queda ninguna reserva PENDIENTE "huérfana" bloqueando la
-  // habitación para esas fechas.
   const reservationId = crypto.randomUUID();
   let initPoint: string | undefined;
 
@@ -161,9 +156,6 @@ export async function POST(
     );
   }
 
-  // Se re-verifica la disponibilidad recién ahora: el round-trip a
-  // MercadoPago pudo haber tardado lo suficiente como para que otra
-  // persona reserve la misma habitación mientras tanto.
   const stillOverlapping = await prisma.reservation.findFirst({
     where: {
       hotelId: hotel.id,
@@ -192,6 +184,7 @@ export async function POST(
       checkIn,
       checkOut,
       roomId,
+      roomType: room.type, // <-- Agregado para cumplir con el esquema
       hotelId: hotel.id,
     },
   });

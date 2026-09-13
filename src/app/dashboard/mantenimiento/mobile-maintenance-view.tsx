@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle2, AlertTriangle, Wrench, Clock, ArrowRightLeft } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Wrench, ArrowRightLeft } from "lucide-react";
 import type { MaintenanceIssue, Room } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ type IssueWithRoom = MaintenanceIssue & {
 
 export function MobileMaintenanceView({
   initialIssues,
-  currentUserId,
+  
 }: {
   initialIssues: IssueWithRoom[];
   currentUserId?: string;
@@ -78,15 +78,6 @@ export function MobileMaintenanceView({
       });
     } catch {
       // Falla silenciosa si pierde internet al tipear
-    }
-  }
-
-  function getSeverityColor(severity: string) {
-    switch (severity) {
-      case "ROJO": return "bg-red-100 text-red-800 border-red-200";
-      case "NARANJA": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "AMARILLO": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      default: return "bg-gray-100 text-gray-800";
     }
   }
 

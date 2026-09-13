@@ -51,7 +51,9 @@ export async function GET(
     select: { roomId: true },
   });
 
-  const excludedRoomIds = overlapping.map((reservation) => reservation.roomId);
+ const excludedRoomIds = overlapping
+  .map((reservation) => reservation.roomId)
+  .filter((id): id is string => id !== null);
 
   const rooms = await prisma.room.findMany({
     where: {

@@ -6,6 +6,7 @@ import {
   InvalidWebhookSignatureError,
 } from "mercadopago";
 import { confirmCheckInPayment } from "@/lib/confirm-checkin-payment";
+import { prisma } from "@/lib/prisma";
 
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -51,8 +52,13 @@ export async function POST(request: NextRequest) {
     const result = await payment.get({ id: paymentId });
 
     if (result.status === "approved" && result.external_reference) {
-      await confirmCheckInPayment(result.external_reference, "MERCADO_PAGO");
-    }
+      const reserva = await prisma.reservation.findUnique({
+    where: { id: result.external_reference },
+  });
+  if (reserva?.roomId) {
+    await confirmCheckInPayment(result.external_reference, "MERCADO_PAGO", reserva.roomId);
+  }
+}
   } catch (error) {
     console.error("MercadoPago webhook error:", error);
   }

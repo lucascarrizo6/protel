@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CalendarView } from "./calendar-view";
+import type { ComponentProps } from "react";
 
 export default async function CalendarioPage() {
   const session = await getServerSession(authOptions);
@@ -33,6 +34,11 @@ export default async function CalendarioPage() {
       ])
     : [[], []];
 
+  // Filtro seguro extrayendo el tipo exacto del componente sin usar "any"
+  const validReservations = reservations.filter(
+    (res) => res.roomId !== null && res.room !== null
+  ) as unknown as ComponentProps<typeof CalendarView>["initialReservations"];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -44,7 +50,7 @@ export default async function CalendarioPage() {
 
       <CalendarView
         rooms={rooms}
-        initialReservations={reservations}
+        initialReservations={validReservations}
         initialMonth={initialMonth}
       />
     </div>

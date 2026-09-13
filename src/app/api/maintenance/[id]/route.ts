@@ -39,7 +39,7 @@ export async function PATCH(
   }
 
   // Preparamos el objeto de actualización de Prisma
-  const dataToUpdate: any = {};
+const dataToUpdate: Record<string, unknown> = {};
 
   if (status) {
     dataToUpdate.status = status;

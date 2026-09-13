@@ -32,6 +32,14 @@ export async function PATCH(
     );
   }
 
+  // Validación de seguridad para la API y para que TypeScript confirme que no es null
+  if (!reservation.roomId) {
+    return NextResponse.json(
+      { error: "Operación inválida: Reserva sin habitación asignada." },
+      { status: 400 }
+    );
+  }
+
   const extrasTotal = sumExtras(parseExtras(reservation.extras));
 
   const updatedReservation = await prisma.$transaction(async (tx) => {
@@ -62,7 +70,7 @@ export async function PATCH(
     });
 
     await tx.room.update({
-      where: { id: reservation.roomId },
+      where: { id: reservation.roomId! }, // TypeScript ahora sabe que es 100% seguro
       data: { status: "CLEANING" },
     });
 

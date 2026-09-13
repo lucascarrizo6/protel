@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Mapa para asociar rápidamente cada roomId con su respectivo tipo de habitación
+  const roomTypeByRoomId = new Map(rooms.map((r) => [r.id, r.type]));
+
   const overlapping = await prisma.reservation.findMany({
     where: {
       hotelId,
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
   if (overlapping.length > 0) {
     return NextResponse.json(
       {
-        error: `La habitación ${overlapping[0].room.number} ya tiene una reserva en ese rango de fechas.`,
+        error: `La habitación ${overlapping[0].room?.number ?? "asignada"} ya tiene una reserva en ese rango de fechas.`,
       },
       { status: 409 }
     );
@@ -137,11 +140,17 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(
       members.map(async (member) => {
+        const roomType = roomTypeByRoomId.get(member.roomId);
+        if (!roomType) {
+          throw new Error("Tipo de habitación no encontrado.");
+        }
+
         const reservation = await tx.reservation.create({
           data: {
             guestName: member.nombre,
             dni: member.dni,
             documentType: member.documentType,
+            roomType,
             checkIn: fechaEntrada,
             checkOut: fechaSalida,
             roomId: member.roomId,

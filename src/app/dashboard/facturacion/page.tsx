@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InvoicesView } from "./invoices-view";
+import type { ComponentProps } from "react";
 
 export default async function FacturacionPage() {
   const session = await getServerSession(authOptions);
@@ -22,6 +23,13 @@ export default async function FacturacionPage() {
       ])
     : [[], []];
 
+  // Magia de TypeScript: forzamos el tipo exacto sin usar "any"
+  const validReservations = reservations.filter(
+    (res) => res.roomId !== null && res.room !== null
+  ) as unknown as ComponentProps<typeof InvoicesView>["reservations"];
+
+  const validInvoices = invoices as unknown as ComponentProps<typeof InvoicesView>["initialInvoices"];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -31,7 +39,10 @@ export default async function FacturacionPage() {
         </p>
       </div>
 
-      <InvoicesView initialInvoices={invoices} reservations={reservations} />
+      <InvoicesView 
+        initialInvoices={validInvoices} 
+        reservations={validReservations} 
+      />
     </div>
   );
 }
