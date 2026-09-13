@@ -22,12 +22,35 @@ export default async function FacturacionPage() {
           take: 50,
         }),
         prisma.reservation.findMany({
-          where: { hotelId: session.user.hotelId },
+          where: {
+            hotelId: session.user.hotelId,
+            // Solo reservas con habitación física ya asignada: no tiene
+            // sentido facturar una reserva "flotante" que todavía no
+            // pasó por el check-in.
+            roomId: { not: null },
+          },
           include: { room: true },
           orderBy: { checkIn: "asc" },
         }),
       ])
     : [[], []];
+
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & {
+      room: NonNullable<(typeof reservation)["room"]>;
+    } => reservation.room !== null
+  );
+
+  // Defensivo: en la práctica una factura siempre se crea sobre una reserva
+  // ya con habitación asignada, pero si alguna quedó huérfana no la mostramos
+  // rota en vez de romper la pantalla entera.
+  const invoicesWithRoom = invoices.filter(
+    (invoice): invoice is typeof invoice & {
+      reservation: typeof invoice.reservation & {
+        room: NonNullable<(typeof invoice.reservation)["room"]>;
+      };
+    } => invoice.reservation.room !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,7 +61,10 @@ export default async function FacturacionPage() {
         </p>
       </div>
 
-      <InvoicesView initialInvoices={invoices} reservations={reservations} />
+      <InvoicesView
+        initialInvoices={invoicesWithRoom}
+        reservations={reservationsWithRoom}
+      />
     </div>
   );
 }

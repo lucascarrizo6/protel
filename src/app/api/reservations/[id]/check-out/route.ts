@@ -36,6 +36,18 @@ export async function PATCH(
     );
   }
 
+  // Invariante: una reserva CONFIRMADA siempre tiene habitación asignada
+  // (se setean juntas en confirmCheckInPayment). Si esto falla, hay datos
+  // corruptos y preferimos avisar en vez de intentar limpiar una habitación
+  // inexistente.
+  if (!reservation.roomId) {
+    return NextResponse.json(
+      { error: "La reserva no tiene habitación asignada." },
+      { status: 409 }
+    );
+  }
+
+  const roomId = reservation.roomId;
   const extrasTotal = sumExtras(parseExtras(reservation.extras));
 
   const updatedReservation = await prisma.$transaction(async (tx) => {
@@ -66,7 +78,7 @@ export async function PATCH(
     });
 
     await tx.room.update({
-      where: { id: reservation.roomId },
+      where: { id: roomId },
       data: { status: "CLEANING" },
     });
 

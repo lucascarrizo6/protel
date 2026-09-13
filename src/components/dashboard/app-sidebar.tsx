@@ -119,7 +119,7 @@ export function AppSidebar({
   const isCollapsed = state === "collapsed";
 
 const visibleNavItems = navItems.filter((item) => {
-    // 1. Roles con área única: SOLO ven su propio módulo, ignorando todo lo demás
+    // 1. Reglas estrictas para roles operativos: SOLO ven su módulo
     if (role === "HOUSEKEEPING") {
       return item.moduleKey === "mucama";
     }
@@ -127,7 +127,7 @@ const visibleNavItems = navItems.filter((item) => {
       return item.moduleKey === "mantenimiento";
     }
 
-    // 2. Reglas normales para Administradores y Super Admins
+    // 2. Reglas normales para Administradores, Recepcionistas y Super Admins
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
       return false;
     }
@@ -137,7 +137,7 @@ const visibleNavItems = navItems.filter((item) => {
     }
     return true;
   });
-
+  
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>

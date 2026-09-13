@@ -20,30 +20,42 @@ export function DashboardHeader({
   roleLabel: string;
 }) {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-card px-4 md:px-6">
-      <div className="flex items-center gap-3">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-card px-3 md:px-6">
+      {/* flex-1 y min-w-0 obligan a esta sección a no empujar al resto de los elementos */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
         <SidebarTrigger />
         <Separator orientation="vertical" className="h-6" />
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold tracking-tight">
-            Bienvenido, {userName}
+        <div className="flex flex-col leading-tight min-w-0">
+          <span className="text-sm font-semibold tracking-tight truncate">
+            {/* Acortamos a "Hola" en celular para ahorrar espacio, pero mantenemos "Bienvenido" en PC */}
+            <span className="hidden sm:inline">Bienvenido, </span>
+            <span className="sm:hidden">Hola, </span>
+            {userName}
           </span>
-          <span className="text-xs text-muted-foreground">{hotelName}</span>
+          <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
+            {hotelName}
+          </span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      
+      {/* shrink-0 asegura que los botones de la derecha nunca se aplasten */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <Tooltip>
           <TooltipTrigger
             render={
               <Button variant="ghost" size="icon" aria-label="Notificaciones" />
             }
           >
-            <Bell />
+            <Bell className="size-5 sm:size-6" />
           </TooltipTrigger>
           <TooltipContent>No hay notificaciones nuevas</TooltipContent>
         </Tooltip>
-        <Separator orientation="vertical" className="h-6" />
-        <Badge variant="secondary">{roleLabel}</Badge>
+        
+        <Separator orientation="vertical" className="hidden sm:block h-6" />
+        <Badge variant="secondary" className="hidden sm:inline-flex">
+          {roleLabel}
+        </Badge>
+        
         <SignOutButton />
       </div>
     </header>

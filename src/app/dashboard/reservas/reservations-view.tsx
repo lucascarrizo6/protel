@@ -66,7 +66,7 @@ import {
 import { GuestPreferencesNotice } from "@/components/dashboard/guest-preferences-notice";
 
 type ReservationWithRoom = Reservation & {
-  room: Room;
+  room: Room | null;
   groupMember: GroupMember | null;
 };
 
@@ -106,11 +106,12 @@ export function ReservationsView({
       guestProfileKey(reservation.documentType, reservation.dni)
     );
   }
+
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [dni, setDni] = useState("");
   const [documentType, setDocumentType] = useState<DocumentType>("DNI");
-  const [roomId, setRoomId] = useState<string>("");
+  const [roomType, setRoomType] = useState<string>("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -120,27 +121,23 @@ export function ReservationsView({
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
-  const [extrasReservation, setExtrasReservation] =
-    useState<ReservationWithRoom | null>(null);
+  const [extrasReservation, setExtrasReservation] = useState<ReservationWithRoom | null>(null);
   const [extrasDraft, setExtrasDraft] = useState<ExtraCharge[]>([]);
   const [extraNombre, setExtraNombre] = useState("");
   const [extraMonto, setExtraMonto] = useState("");
   const [isSavingExtras, setIsSavingExtras] = useState(false);
   const [extrasError, setExtrasError] = useState<string | null>(null);
 
-  const [prefsReservation, setPrefsReservation] =
-    useState<ReservationWithRoom | null>(null);
+  const [prefsReservation, setPrefsReservation] = useState<ReservationWithRoom | null>(null);
 
-  const [checkinReservation, setCheckinReservation] =
-    useState<ReservationWithRoom | null>(null);
-  const [checkinPaymentMethod, setCheckinPaymentMethod] =
-    useState<PaymentMethod | "">("");
+  const [checkinReservation, setCheckinReservation] = useState<ReservationWithRoom | null>(null);
+  const [checkinRoomId, setCheckinRoomId] = useState<string>("");
+  const [checkinPaymentMethod, setCheckinPaymentMethod] = useState<PaymentMethod | "">("");
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [isRedirectingToMp, setIsRedirectingToMp] = useState(false);
 
-  const [checkoutReservation, setCheckoutReservation] =
-    useState<ReservationWithRoom | null>(null);
+  const [checkoutReservation, setCheckoutReservation] = useState<ReservationWithRoom | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -148,9 +145,6 @@ export function ReservationsView({
     const pago = searchParams.get("pago");
     if (!pago) return;
 
-    // Se difiere al siguiente tick: en el montaje inicial de la página
-    // este efecto corre antes de que <Toaster/> suscriba su listener,
-    // así que un toast disparado de forma síncrona aquí se pierde.
     const timeout = setTimeout(() => {
       if (pago === "exitoso") {
         toast.success("Pago con MercadoPago confirmado.");
@@ -170,7 +164,7 @@ export function ReservationsView({
     setGuestName("");
     setDni("");
     setDocumentType("DNI");
-    setRoomId("");
+    setRoomType("");
     setCheckIn("");
     setCheckOut("");
     setError(null);
@@ -187,8 +181,8 @@ export function ReservationsView({
     event.preventDefault();
     setError(null);
 
-    if (!roomId) {
-      setError("Selecciona una habitación.");
+    if (!roomType) {
+      setError("Selecciona una categoría de habitación.");
       return;
     }
 
@@ -207,7 +201,7 @@ export function ReservationsView({
           guestName,
           dni,
           documentType,
-          roomId,
+          roomType,
           checkIn,
           checkOut,
         }),
@@ -226,7 +220,7 @@ export function ReservationsView({
       );
       setOpen(false);
     } catch {
-      setError("No se pudo crear la reserva. Inténtalo de nuevo.");
+      setError("No se pudo crear la reserva. Verifica la disponibilidad e inténtalo de nuevo.");
     } finally {
       setIsSaving(false);
     }
@@ -242,13 +236,12 @@ export function ReservationsView({
 
   function openCheckIn(reservation: ReservationWithRoom) {
     setCheckinReservation(reservation);
+    setCheckinRoomId(reservation.roomId ?? ""); 
     setCheckinPaymentMethod("");
     setCheckinError(null);
     setIsRedirectingToMp(false);
   }
 
-  // Antes del cobro: si el huésped tiene perfil (VIP o preferencias), primero
-  // muestra el aviso y recién al cerrarlo abre el check-in.
   function startCheckIn(reservation: ReservationWithRoom) {
     if (guestProfileHasNotice(profileFor(reservation))) {
       setPrefsReservation(reservation);
@@ -259,6 +252,11 @@ export function ReservationsView({
 
   async function confirmCheckIn() {
     if (!checkinReservation) return;
+
+    if (!checkinRoomId) {
+      setCheckinError("Asigna una habitación física para hacer el check-in.");
+      return;
+    }
 
     if (!checkinPaymentMethod) {
       setCheckinError("Selecciona un método de pago.");
@@ -274,7 +272,10 @@ export function ReservationsView({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentMethod: checkinPaymentMethod }),
+          body: JSON.stringify({ 
+            paymentMethod: checkinPaymentMethod,
+            roomId: checkinRoomId
+          }),
         }
       );
       const data = await response.json().catch(() => null);
@@ -296,6 +297,10 @@ export function ReservationsView({
 
   async function payWithMercadoPago() {
     if (!checkinReservation) return;
+    if (!checkinRoomId) {
+      setCheckinError("Asigna una habitación física antes de cobrar.");
+      return;
+    }
 
     setCheckinError(null);
     setIsRedirectingToMp(true);
@@ -306,6 +311,7 @@ export function ReservationsView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservaId: checkinReservation.id,
+          roomId: checkinRoomId
         }),
       });
       const data = await response.json().catch(() => null);
@@ -447,6 +453,7 @@ export function ReservationsView({
     }
   }
 
+  // Cálculos dinámicos para el Check-in
   const extrasTotalDraft = sumExtras(extrasDraft);
 
   const checkinNights = checkinReservation
@@ -455,9 +462,11 @@ export function ReservationsView({
         new Date(checkinReservation.checkOut)
       )
     : 0;
+
+  const selectedCheckinRoom = rooms.find((r) => r.id === checkinRoomId);
   const checkinAmount = checkinReservation?.groupMember?.esFree
     ? 0
-    : checkinNights * (checkinReservation?.room.pricePerNight ?? 0);
+    : checkinNights * (selectedCheckinRoom?.pricePerNight ?? 0);
 
   const checkoutExtras = checkoutReservation
     ? parseExtras(checkoutReservation.extras)
@@ -526,27 +535,18 @@ export function ReservationsView({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="roomId">Habitación</Label>
+                  <Label htmlFor="roomType">Categoría de Habitación</Label>
                   <Select
-                    value={roomId}
-                    onValueChange={(value) => setRoomId(value ?? "")}
+                    value={roomType}
+                    onValueChange={(value) => setRoomType(value ?? "")}
                   >
-                    <SelectTrigger id="roomId" className="w-full">
-                      <SelectValue placeholder="Selecciona una habitación">
-                        {(value: string | null) => {
-                          const room = rooms.find(
-                            (candidate) => candidate.id === value
-                          );
-                          return room
-                            ? `Habitación ${room.number} · ${room.type}`
-                            : "Selecciona una habitación";
-                        }}
-                      </SelectValue>
+                    <SelectTrigger id="roomType" className="w-full">
+                      <SelectValue placeholder="Selecciona la categoría vendida" />
                     </SelectTrigger>
                     <SelectContent>
-                      {rooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          Habitación {room.number} · {room.type}
+                      {Array.from(new Set(rooms.map(r => r.type))).map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -611,17 +611,16 @@ export function ReservationsView({
           </CardHeader>
         </Card>
       ) : (
-        <Card className="py-0">
+        <Card className="py-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Huésped</TableHead>
                 <TableHead>Documento</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Teléfono</TableHead>
+                <TableHead>Categoría</TableHead>
                 <TableHead>Habitación</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[140px]">Check-in</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[140px]">Check-out</TableHead>
                 <TableHead>Extras</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
@@ -633,7 +632,7 @@ export function ReservationsView({
                 const isPending = pendingActionId === reservation.id;
                 return (
                   <TableRow key={reservation.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium whitespace-nowrap">
                       {profileFor(reservation)?.vip ? (
                         <Star
                           className="mr-1 inline size-3.5 -translate-y-px fill-amber-400 text-amber-400"
@@ -647,17 +646,22 @@ export function ReservationsView({
                         </Badge>
                       ) : null}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {formatDocumentType(reservation.documentType)}{" "}
                       {reservation.dni}
                     </TableCell>
-                    <TableCell>{reservation.email ?? "—"}</TableCell>
-                    <TableCell>{reservation.phone ?? "—"}</TableCell>
-                    <TableCell>{reservation.room.number}</TableCell>
+                    <TableCell>{reservation.roomType}</TableCell>
                     <TableCell>
+                      {reservation.room ? (
+                        reservation.room.number
+                      ) : (
+                        <span className="italic text-muted-foreground">A asignar</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap min-w-[140px]">
                       {formatDate(new Date(reservation.checkIn))}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap min-w-[140px]">
                       {formatDate(new Date(reservation.checkOut))}
                     </TableCell>
                     <TableCell>
@@ -720,6 +724,7 @@ export function ReservationsView({
         </Card>
       )}
 
+      {/* Modal Extras */}
       <Dialog
         open={extrasReservation !== null}
         onOpenChange={(nextOpen) => {
@@ -821,6 +826,7 @@ export function ReservationsView({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Preferencias */}
       <Dialog
         open={prefsReservation !== null}
         onOpenChange={(nextOpen) => {
@@ -858,6 +864,7 @@ export function ReservationsView({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Check-in */}
       <Dialog
         open={checkinReservation !== null}
         onOpenChange={(nextOpen) => {
@@ -866,16 +873,49 @@ export function ReservationsView({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cobro de alojamiento</DialogTitle>
+            <DialogTitle>Asignación y Cobro</DialogTitle>
             <DialogDescription>
-              Confirma el pago para hacer check-in de{" "}
-              {checkinReservation?.guestName}.
+              Asigná la habitación y confirmá el pago de {checkinReservation?.guestName}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="checkinRoomId">Habitación Física</Label>
+              <Select
+                value={checkinRoomId}
+                onValueChange={(value) => setCheckinRoomId(value ?? "")}
+              >
+                <SelectTrigger id="checkinRoomId" className="w-full">
+                  <SelectValue placeholder="Seleccioná dónde alojarlo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="header_1" disabled className="font-semibold text-primary">
+                    --- Sugeridas ({checkinReservation?.roomType}) ---
+                  </SelectItem>
+                  {rooms
+                    .filter((r) => r.type === checkinReservation?.roomType)
+                    .map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        Habitación {room.number}
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="header_2" disabled className="font-semibold text-primary mt-2">
+                    --- Otras Disponibles (Upgrades) ---
+                  </SelectItem>
+                  {rooms
+                    .filter((r) => r.type !== checkinReservation?.roomType)
+                    .map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        Habitación {room.number} ({room.type})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="rounded-md border p-3 text-sm text-muted-foreground">
-              Habitación {checkinReservation?.room.number} · {checkinNights}{" "}
+              Habitación {selectedCheckinRoom?.number ?? "A asignar"} · {checkinNights}{" "}
               noche(s)
               {checkinReservation?.groupMember?.esFree ? (
                 <span className="ml-2">
@@ -885,11 +925,10 @@ export function ReservationsView({
               <p className="mt-1 text-base font-semibold text-foreground">
                 {formatCurrency(checkinAmount)}
               </p>
-              {!checkinReservation?.groupMember?.esFree ? (
+              {!checkinReservation?.groupMember?.esFree && selectedCheckinRoom ? (
                 <p className="mt-0.5 text-xs">
                   {checkinNights} noche(s) ×{" "}
-                  {formatCurrency(checkinReservation?.room.pricePerNight ?? 0)}.
-                  El total se calcula solo, no se edita.
+                  {formatCurrency(selectedCheckinRoom.pricePerNight)}.
                 </p>
               ) : null}
             </div>
@@ -967,6 +1006,7 @@ export function ReservationsView({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Check-out */}
       <Dialog
         open={checkoutReservation !== null}
         onOpenChange={(nextOpen) => {

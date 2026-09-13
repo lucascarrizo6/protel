@@ -33,12 +33,23 @@ export default async function CalendarioPage() {
             status: { not: "CANCELADA" },
             checkIn: { lt: monthEnd },
             checkOut: { gt: monthStart },
+            // El calendario agrupa por habitación física: una reserva
+            // "flotante" (por categoría, sin habitación asignada todavía)
+            // no tiene dónde graficarse hasta el check-in.
+            roomId: { not: null },
           },
           include: { room: true },
           orderBy: { checkIn: "asc" },
         }),
       ])
     : [[], []];
+
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & {
+      room: NonNullable<(typeof reservation)["room"]>;
+      roomId: string;
+    } => reservation.room !== null && reservation.roomId !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,7 +62,7 @@ export default async function CalendarioPage() {
 
       <CalendarView
         rooms={rooms}
-        initialReservations={reservations}
+        initialReservations={reservationsWithRoom}
         initialMonth={initialMonth}
       />
     </div>

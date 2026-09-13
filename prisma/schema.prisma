@@ -27,7 +27,9 @@ enum MaintenanceSeverity {
 }
 
 enum MaintenanceStatus {
-  ABIERTO
+  PENDIENTE
+  EN_REVISION
+  DERIVADO
   RESUELTO
 }
 
@@ -127,7 +129,8 @@ model User {
   hotelId String?
   hotel   Hotel?  @relation(fields: [hotelId], references: [id])
 
-  housekeepingTasks HousekeepingTask[]
+  housekeepingTasks    HousekeepingTask[]
+  maintenanceHistories MaintenanceHistory[]
 
   @@index([hotelId])
 }
@@ -145,9 +148,9 @@ model Room {
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
 
-  reservations     Reservation[]
-  housekeepingTask HousekeepingTask?
-  groupMembers     GroupMember[]
+  reservations      Reservation[]
+  housekeepingTask  HousekeepingTask?
+  groupMembers      GroupMember[]
   maintenanceIssues MaintenanceIssue[]
 
   @@unique([hotelId, number])
@@ -170,7 +173,6 @@ model HousekeepingTask {
   roomId String @unique
   room   Room   @relation(fields: [roomId], references: [id])
 
-  //asignar tareas a la mucama
   assignedToId String?
   assignedTo   User?   @relation(fields: [assignedToId], references: [id])
 
@@ -187,14 +189,15 @@ model Reservation {
   checkIn      DateTime
   checkOut     DateTime
   status       ReservationStatus @default(PENDIENTE)
+  roomType     String
   extras       Json?
   createdAt    DateTime          @default(now())
 
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
 
-  roomId String
-  room   Room   @relation(fields: [roomId], references: [id])
+  roomId String? // <-- Ahora es opcional
+  room   Room?   @relation(fields: [roomId], references: [id]) // <-- Ahora es opcional
 
   invoices    Invoice[]
   groupMember GroupMember?
@@ -261,17 +264,17 @@ model GroupMember {
 }
 
 model HotelModules {
-  id           String  @id @default(cuid())
-  hotelId      String  @unique
-  hotel        Hotel   @relation(fields: [hotelId], references: [id])
-  mercadopago  Boolean @default(true)
-  afip         Boolean @default(true)
-  grupos       Boolean @default(true)
-  mucama       Boolean @default(true)
-  calendario   Boolean @default(true)
-  reservas     Boolean @default(true)
+  id            String  @id @default(cuid())
+  hotelId       String  @unique
+  hotel         Hotel   @relation(fields: [hotelId], references: [id])
+  mercadopago   Boolean @default(true)
+  afip          Boolean @default(true)
+  grupos        Boolean @default(true)
+  mucama        Boolean @default(true)
+  calendario    Boolean @default(true)
+  reservas      Boolean @default(true)
   mantenimiento Boolean @default(true)
-  personal     Boolean @default(true)
+  personal      Boolean @default(true)
 }
 
 model MaintenanceIssue {
@@ -279,7 +282,7 @@ model MaintenanceIssue {
   titulo       String
   detalle      String?
   severity     MaintenanceSeverity
-  status       MaintenanceStatus   @default(ABIERTO)
+  status       MaintenanceStatus   @default(PENDIENTE)
   reportadoPor String?
   resueltoPor  String?
   createdAt    DateTime            @default(now())
@@ -292,8 +295,27 @@ model MaintenanceIssue {
   roomId String
   room   Room   @relation(fields: [roomId], references: [id])
 
+  history MaintenanceHistory[]
+
   @@index([hotelId, status])
   @@index([roomId])
+}
+
+model MaintenanceHistory {
+  id         String   @id @default(cuid())
+  action     String
+  notes      String?
+  receiptUrl String?
+  createdAt  DateTime @default(now())
+
+  issueId String
+  issue   MaintenanceIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([issueId])
+  @@index([userId])
 }
 
 model AfipConfig {
@@ -333,15 +355,15 @@ model GuestProfile {
 }
 
 model Employee {
-  id        String   @id @default(cuid())
-  nombre    String
-  puesto    String
-  dni       String?
-  cuitCuil  String?
+  id              String    @id @default(cuid())
+  nombre          String
+  puesto          String
+  dni             String?
+  cuitCuil        String?
   fechaNacimiento DateTime?
   fechaIngreso    DateTime?
-  telefono  String?
-  email     String?
+  telefono        String?
+  email           String?
 
   contactoEmergenciaNombre   String?
   contactoEmergenciaTelefono String?

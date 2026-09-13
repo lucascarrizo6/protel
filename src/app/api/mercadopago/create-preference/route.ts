@@ -40,6 +40,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!reservation.room) {
+    return NextResponse.json(
+      {
+        error:
+          "Esta reserva todavía no tiene habitación asignada. Completá el check-in antes de cobrar.",
+      },
+      { status: 409 }
+    );
+  }
+
   // El monto se calcula siempre server-side (noches × precio de la
   // habitación), nunca se confía en un valor mandado por el cliente.
   const monto = reservation.groupMember?.esFree

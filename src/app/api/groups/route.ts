@@ -122,11 +122,13 @@ export async function POST(request: NextRequest) {
   if (overlapping.length > 0) {
     return NextResponse.json(
       {
-        error: `La habitación ${overlapping[0].room.number} ya tiene una reserva en ese rango de fechas.`,
+        error: `La habitación ${overlapping[0].room?.number ?? "seleccionada"} ya tiene una reserva en ese rango de fechas.`,
       },
       { status: 409 }
     );
   }
+
+  const roomTypeById = new Map(rooms.map((room) => [room.id, room.type]));
 
   const group = await prisma.$transaction(async (tx) => {
     const createdGroup = await tx.group.create({
@@ -149,6 +151,10 @@ export async function POST(request: NextRequest) {
             checkIn: fechaEntrada,
             checkOut: fechaSalida,
             roomId: member.roomId,
+            // En un grupo se elige la habitación física puntual, no una
+            // categoría — igual guardamos su tipo para que el registro
+            // sea consistente con el resto de las reservas.
+            roomType: roomTypeById.get(member.roomId) ?? "Sin categoría",
             hotelId,
           },
         });

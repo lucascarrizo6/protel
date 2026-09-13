@@ -16,7 +16,10 @@ import {
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
-type ReservationWithRoom = Reservation & { room: Room };
+// El calendario solo trabaja con reservas que ya tienen habitación física
+// asignada (ver el filtro roomId: { not: null } en page.tsx), así que acá
+// tanto room como roomId están garantizados.
+type ReservationWithRoom = Reservation & { room: Room; roomId: string };
 
 type DayBucket = {
   checkIns: ReservationWithRoom[];

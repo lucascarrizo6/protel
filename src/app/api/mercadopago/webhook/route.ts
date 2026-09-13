@@ -6,6 +6,7 @@ import {
   InvalidWebhookSignatureError,
 } from "mercadopago";
 import { confirmCheckInPayment } from "@/lib/confirm-checkin-payment";
+import { prisma } from "@/lib/prisma";
 
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -51,7 +52,26 @@ export async function POST(request: NextRequest) {
     const result = await payment.get({ id: paymentId });
 
     if (result.status === "approved" && result.external_reference) {
-      await confirmCheckInPayment(result.external_reference, "MERCADO_PAGO");
+      // El motor público ya asigna una habitación puntual al crear la
+      // reserva (no es una reserva "flotante" por categoría), así que
+      // reusamos esa misma habitación para confirmar el pago.
+      const reservation = await prisma.reservation.findUnique({
+        where: { id: result.external_reference },
+        select: { roomId: true },
+      });
+
+      if (reservation?.roomId) {
+        await confirmCheckInPayment(
+          result.external_reference,
+          "MERCADO_PAGO",
+          reservation.roomId
+        );
+      } else {
+        console.error(
+          "MercadoPago webhook: la reserva no tiene habitación asignada.",
+          result.external_reference
+        );
+      }
     }
   } catch (error) {
     console.error("MercadoPago webhook error:", error);

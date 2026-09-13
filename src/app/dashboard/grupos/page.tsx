@@ -21,7 +21,13 @@ export default async function GruposPage() {
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
         prisma.reservation.findMany({
-          where: { hotelId, status: { in: ["PENDIENTE", "CONFIRMADA"] } },
+          where: {
+            hotelId,
+            status: { in: ["PENDIENTE", "CONFIRMADA"] },
+            // Una reserva flotante (sin habitación todavía) no ocupa
+            // ninguna habitación puntual, así que no cuenta acá.
+            roomId: { not: null },
+          },
           select: { roomId: true, checkIn: true, checkOut: true },
         }),
         prisma.group.findMany({
@@ -33,6 +39,11 @@ export default async function GruposPage() {
         }),
       ])
     : [[], [], []];
+
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & { roomId: string } =>
+      reservation.roomId !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,7 +58,7 @@ export default async function GruposPage() {
       <GroupsView
         initialGroups={groups}
         rooms={rooms}
-        existingReservations={reservations}
+        existingReservations={reservationsWithRoom}
       />
     </div>
   );

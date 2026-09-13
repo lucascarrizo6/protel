@@ -23,10 +23,20 @@ export async function PATCH(
   const paymentMethod = body?.paymentMethod as
     | (typeof PAYMENT_METHODS)[number]
     | undefined;
+  
+  // Extraemos la habitación que el recepcionista seleccionó en el frontend
+  const roomId = typeof body?.roomId === "string" ? body.roomId : "";
 
   if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
     return NextResponse.json(
       { error: "Selecciona un método de pago válido." },
+      { status: 400 }
+    );
+  }
+
+  if (!roomId) {
+    return NextResponse.json(
+      { error: "Es obligatorio asignar una habitación física en el check-in." },
       { status: 400 }
     );
   }
@@ -62,14 +72,16 @@ export async function PATCH(
     );
   }
 
+  // Le pasamos el roomId a tu función central para que asigne la habitación en la DB
   const updatedReservation = await confirmCheckInPayment(
     params.id,
-    paymentMethod
+    paymentMethod,
+    roomId
   );
 
   if (!updatedReservation) {
     return NextResponse.json(
-      { error: "Solo se puede hacer check-in a reservas pendientes." },
+      { error: "No se pudo procesar el check-in." },
       { status: 409 }
     );
   }
