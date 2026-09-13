@@ -15,3 +15,14 @@ export function getScopedHome(role: UserRole | undefined): string | null {
   if (!role) return null;
   return SCOPED_ROLE_HOME[role] ?? null;
 }
+
+/**
+ * Mismo criterio que getScopedHome, pero para usar en endpoints de API en
+ * vez de páginas: true si este rol puede pedir/tocar datos generales del
+ * hotel (reservas, grupos, etc.), false si es un rol de área única
+ * (Mucama, Mantenimiento) que no debería poder llamar a esas rutas ni
+ * aunque sepa la URL.
+ */
+export function isGeneralAccessRole(role: UserRole | undefined): boolean {
+  return getScopedHome(role) === null;
+}

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
 import { blockingReservationFilter } from "@/lib/reservation-overlap";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 export async function GET(request: NextRequest) {
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const monthParam = request.nextUrl.searchParams.get("month");
@@ -47,6 +51,9 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);

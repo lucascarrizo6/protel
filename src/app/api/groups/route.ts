@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BED_ARRANGEMENTS } from "@/lib/bed-arrangement";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 import type { BedArrangement, DocumentType } from "@/generated/prisma/enums";
 
 type MemberInput = {
@@ -20,6 +21,9 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const hotelId = session.user.hotelId;

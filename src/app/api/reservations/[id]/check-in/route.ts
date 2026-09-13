@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { confirmCheckInPayment } from "@/lib/confirm-checkin-payment";
 import { PAYMENT_METHODS } from "@/lib/payment-method";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 
 export async function PATCH(
   request: NextRequest,
@@ -13,6 +14,9 @@ export async function PATCH(
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);

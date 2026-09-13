@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseExtras } from "@/lib/reservation-extras";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 
 export async function PATCH(
   request: NextRequest,
@@ -12,6 +13,9 @@ export async function PATCH(
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
