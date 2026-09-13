@@ -2,17 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { nightsBetween } from "@/lib/nights-between";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
-/**
- * Registra el pago de alojamiento y confirma el check-in: asocia la habitación física,
- * crea la factura PAGADA, pasa la reserva a CONFIRMADA y la habitación a OCCUPIED,
- * todo en una transacción segura.
- */
 export async function confirmCheckInPayment(
   reservationId: string,
   paymentMethod: PaymentMethod,
-  roomId: string // <-- Recibe el ID de la habitación elegida en Recepción
+  roomId: string
 ) {
-  // 1. Buscamos la reserva flotante
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
     include: { groupMember: true },
@@ -22,13 +16,16 @@ export async function confirmCheckInPayment(
     return null;
   }
 
-  // 2. Buscamos la habitación física elegida para extraer su precio real
   const selectedRoom = await prisma.room.findUnique({
     where: { id: roomId }
   });
 
   if (!selectedRoom) {
     throw new Error("La habitación seleccionada no existe.");
+  }
+
+  if (selectedRoom.status === "OCCUPIED" || selectedRoom.status === "BLOCKED") {
+    throw new Error(`La habitación ${selectedRoom.number} no está disponible (Estado: ${selectedRoom.status}).`);
   }
 
   const amount = reservation.groupMember?.esFree
@@ -44,7 +41,20 @@ export async function confirmCheckInPayment(
       throw new Error("CONFLICT");
     }
 
-    // 3. Creamos la factura de alojamiento
+    // VALIDACIÓN CRÍTICA: Evitar superposición física en la misma habitación
+    const overlapping = await tx.reservation.count({
+      where: {
+        roomId: roomId,
+        status: { in: ["CONFIRMADA", "COMPLETADA"] },
+        checkIn: { lt: reservation.checkOut },
+        checkOut: { gt: reservation.checkIn },
+      }
+    });
+
+    if (overlapping > 0) {
+      throw new Error(`La habitación ${selectedRoom.number} ya tiene otra reserva asignada en estas fechas.`);
+    }
+
     await tx.invoice.create({
       data: {
         amount,
@@ -56,17 +66,15 @@ export async function confirmCheckInPayment(
       },
     });
 
-    // 4. Confirmamos la reserva y le INYECTAMOS la habitación asignada
     const updated = await tx.reservation.update({
       where: { id: reservationId },
       data: { 
         status: "CONFIRMADA",
-        roomId: roomId // <-- Enlazamos la reserva con la llave física
+        roomId: roomId 
       },
       include: { room: true, groupMember: true },
     });
 
-    // 5. Bloqueamos físicamente la habitación
     await tx.room.update({
       where: { id: roomId },
       data: { status: "OCCUPIED" },

@@ -884,30 +884,39 @@ export function ReservationsView({
               <Label htmlFor="checkinRoomId">Habitación Física</Label>
               <Select
                 value={checkinRoomId}
-                onValueChange={setCheckinRoomId}
+                onValueChange={(value) => setCheckinRoomId(value ?? "")}
               >
                 <SelectTrigger id="checkinRoomId" className="w-full">
-                  <SelectValue placeholder="Seleccioná dónde alojarlo" />
+                  <SelectValue placeholder="Seleccioná dónde alojarlo">
+                    {(value: string | null) => {
+                      const room = rooms.find((r) => r.id === value);
+                      return room
+                        ? `Hab. ${room.number} (${room.type})`
+                        : "Seleccioná dónde alojarlo";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="header_1" disabled className="font-semibold text-primary">
                     --- Sugeridas ({checkinReservation?.roomType}) ---
                   </SelectItem>
                   {rooms
+                    .filter((r) => r.status === "AVAILABLE" || r.status === "CLEANING")
                     .filter((r) => r.type === checkinReservation?.roomType)
                     .map((room) => (
                       <SelectItem key={room.id} value={room.id}>
-                        Habitación {room.number}
+                        Hab. {room.number} {room.status === "CLEANING" ? "(En limpieza)" : ""}
                       </SelectItem>
                     ))}
                   <SelectItem value="header_2" disabled className="font-semibold text-primary mt-2">
                     --- Otras Disponibles (Upgrades) ---
                   </SelectItem>
                   {rooms
+                    .filter((r) => r.status === "AVAILABLE" || r.status === "CLEANING")
                     .filter((r) => r.type !== checkinReservation?.roomType)
                     .map((room) => (
                       <SelectItem key={room.id} value={room.id}>
-                        Habitación {room.number} ({room.type})
+                        Hab. {room.number} ({room.type}) {room.status === "CLEANING" ? "- En limpieza" : ""}
                       </SelectItem>
                     ))}
                 </SelectContent>
