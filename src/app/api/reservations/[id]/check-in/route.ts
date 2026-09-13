@@ -19,10 +19,19 @@ export async function PATCH(
   const paymentMethod = body?.paymentMethod as
     | (typeof PAYMENT_METHODS)[number]
     | undefined;
+  
+  const roomId = typeof body?.roomId === "string" ? body.roomId : "";
 
   if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
     return NextResponse.json(
       { error: "Selecciona un método de pago válido." },
+      { status: 400 }
+    );
+  }
+
+  if (!roomId) {
+    return NextResponse.json(
+      { error: "Es obligatorio asignar una habitación física en el check-in." },
       { status: 400 }
     );
   }
@@ -58,17 +67,26 @@ export async function PATCH(
     );
   }
 
-  const updatedReservation = await confirmCheckInPayment(
-    params.id,
-    paymentMethod
-  );
+  try {
+    const updatedReservation = await confirmCheckInPayment(
+      params.id,
+      paymentMethod,
+      roomId
+    );
 
-  if (!updatedReservation) {
+    if (!updatedReservation) {
+      return NextResponse.json(
+        { error: "No se pudo procesar el check-in." },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(updatedReservation);
+  } catch (error) {
+    // Acá atajamos la validación estricta (ej: superposición de fechas) y se la devolvemos limpia al frontend
     return NextResponse.json(
-      { error: "Solo se puede hacer check-in a reservas pendientes." },
-      { status: 409 }
+      { error: error instanceof Error ? error.message : "Error interno al asignar la habitación." },
+      { status: 400 }
     );
   }
-
-  return NextResponse.json(updatedReservation);
 }

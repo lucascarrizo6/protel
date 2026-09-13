@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, Star, X } from "lucide-react";
 import type {
   GroupMember,
   Reservation,
@@ -58,9 +58,15 @@ import {
 import { nightsBetween } from "@/lib/nights-between";
 import { DOCUMENT_TYPES, formatDocumentType } from "@/lib/document-type";
 import { PAYMENT_METHODS, formatPaymentMethod } from "@/lib/payment-method";
+import {
+  guestProfileHasNotice,
+  guestProfileKey,
+  type GuestProfileDTO,
+} from "@/lib/guest-profile";
+import { GuestPreferencesNotice } from "@/components/dashboard/guest-preferences-notice";
 
 type ReservationWithRoom = Reservation & {
-  room: Room;
+  room: Room | null;
   groupMember: GroupMember | null;
 };
 
@@ -74,18 +80,38 @@ function isCheckInAllowed(reservation: ReservationWithRoom): boolean {
 export function ReservationsView({
   initialReservations,
   rooms,
+  guestProfiles,
 }: {
   initialReservations: ReservationWithRoom[];
   rooms: Room[];
+  guestProfiles: GuestProfileDTO[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [reservations, setReservations] = useState(initialReservations);
+
+  const profileByKey = useMemo(
+    () =>
+      new Map(
+        guestProfiles.map((profile) => [
+          guestProfileKey(profile.documentType, profile.dni),
+          profile,
+        ])
+      ),
+    [guestProfiles]
+  );
+
+  function profileFor(reservation: ReservationWithRoom) {
+    return profileByKey.get(
+      guestProfileKey(reservation.documentType, reservation.dni)
+    );
+  }
+
   const [open, setOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [dni, setDni] = useState("");
   const [documentType, setDocumentType] = useState<DocumentType>("DNI");
-  const [roomId, setRoomId] = useState<string>("");
+  const [roomType, setRoomType] = useState<string>("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -95,24 +121,27 @@ export function ReservationsView({
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
-  const [extrasReservation, setExtrasReservation] =
-    useState<ReservationWithRoom | null>(null);
+  const [extrasReservation, setExtrasReservation] = useState<ReservationWithRoom | null>(null);
   const [extrasDraft, setExtrasDraft] = useState<ExtraCharge[]>([]);
   const [extraNombre, setExtraNombre] = useState("");
   const [extraMonto, setExtraMonto] = useState("");
   const [isSavingExtras, setIsSavingExtras] = useState(false);
   const [extrasError, setExtrasError] = useState<string | null>(null);
 
-  const [checkinReservation, setCheckinReservation] =
-    useState<ReservationWithRoom | null>(null);
-  const [checkinPaymentMethod, setCheckinPaymentMethod] =
-    useState<PaymentMethod | "">("");
+  const [prefsReservation, setPrefsReservation] = useState<ReservationWithRoom | null>(null);
+
+  const [checkinReservation, setCheckinReservation] = useState<ReservationWithRoom | null>(null);
+  const [checkinRoomId, setCheckinRoomId] = useState<string>("");
+  const [checkinPaymentMethod, setCheckinPaymentMethod] = useState<PaymentMethod | "">("");
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [isRedirectingToMp, setIsRedirectingToMp] = useState(false);
+  
+  // Nuevos estados para disponibilidad segura desde el backend
+  const [safeRooms, setSafeRooms] = useState<Room[]>([]);
+  const [isLoadingSafeRooms, setIsLoadingSafeRooms] = useState(false);
 
-  const [checkoutReservation, setCheckoutReservation] =
-    useState<ReservationWithRoom | null>(null);
+  const [checkoutReservation, setCheckoutReservation] = useState<ReservationWithRoom | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -120,9 +149,6 @@ export function ReservationsView({
     const pago = searchParams.get("pago");
     if (!pago) return;
 
-    // Se difiere al siguiente tick: en el montaje inicial de la página
-    // este efecto corre antes de que <Toaster/> suscriba su listener,
-    // así que un toast disparado de forma síncrona aquí se pierde.
     const timeout = setTimeout(() => {
       if (pago === "exitoso") {
         toast.success("Pago con MercadoPago confirmado.");
@@ -138,11 +164,27 @@ export function ReservationsView({
     return () => clearTimeout(timeout);
   }, [searchParams, router]);
 
+  // Carga de habitaciones seguras al abrir el Check-in
+  useEffect(() => {
+    if (checkinReservation) {
+      setIsLoadingSafeRooms(true);
+      fetch(`/api/reservations/${checkinReservation.id}/available-rooms`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setSafeRooms(data);
+        })
+        .finally(() => setIsLoadingSafeRooms(false));
+    } else {
+      setSafeRooms([]);
+      setCheckinRoomId("");
+    }
+  }, [checkinReservation]);
+
   function resetForm() {
     setGuestName("");
     setDni("");
     setDocumentType("DNI");
-    setRoomId("");
+    setRoomType("");
     setCheckIn("");
     setCheckOut("");
     setError(null);
@@ -159,8 +201,19 @@ export function ReservationsView({
     event.preventDefault();
     setError(null);
 
-    if (!roomId) {
-      setError("Selecciona una habitación.");
+    // Validación estricta de documentos
+    if (documentType === "DNI" && !/^\d{7,}$/.test(dni)) {
+      setError("El DNI debe contener solo números y tener un mínimo de 7 dígitos.");
+      return;
+    }
+    
+    if (documentType === "PASAPORTE" && !/^[a-zA-Z0-9]+$/.test(dni)) {
+      setError("El pasaporte debe contener solo letras y números, sin espacios.");
+      return;
+    }
+
+    if (!roomType) {
+      setError("Selecciona una categoría de habitación.");
       return;
     }
 
@@ -179,7 +232,7 @@ export function ReservationsView({
           guestName,
           dni,
           documentType,
-          roomId,
+          roomType,
           checkIn,
           checkOut,
         }),
@@ -198,7 +251,7 @@ export function ReservationsView({
       );
       setOpen(false);
     } catch {
-      setError("No se pudo crear la reserva. Inténtalo de nuevo.");
+      setError("No se pudo crear la reserva. Verifica la disponibilidad e inténtalo de nuevo.");
     } finally {
       setIsSaving(false);
     }
@@ -214,13 +267,27 @@ export function ReservationsView({
 
   function openCheckIn(reservation: ReservationWithRoom) {
     setCheckinReservation(reservation);
+    setCheckinRoomId(reservation.roomId ?? ""); 
     setCheckinPaymentMethod("");
     setCheckinError(null);
     setIsRedirectingToMp(false);
   }
 
+  function startCheckIn(reservation: ReservationWithRoom) {
+    if (guestProfileHasNotice(profileFor(reservation))) {
+      setPrefsReservation(reservation);
+    } else {
+      openCheckIn(reservation);
+    }
+  }
+
   async function confirmCheckIn() {
     if (!checkinReservation) return;
+
+    if (!checkinRoomId) {
+      setCheckinError("Asigna una habitación física para hacer el check-in.");
+      return;
+    }
 
     if (!checkinPaymentMethod) {
       setCheckinError("Selecciona un método de pago.");
@@ -236,9 +303,13 @@ export function ReservationsView({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentMethod: checkinPaymentMethod }),
+          body: JSON.stringify({ 
+            paymentMethod: checkinPaymentMethod,
+            roomId: checkinRoomId
+          }),
         }
       );
+      
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -247,6 +318,10 @@ export function ReservationsView({
 
       updateReservation(data as ReservationWithRoom);
       setCheckinReservation(null);
+      toast.success("Check-in completado y habitación asignada.");
+      
+      router.refresh();
+      
     } catch (err) {
       setCheckinError(
         err instanceof Error ? err.message : "No se pudo hacer el check-in."
@@ -258,6 +333,10 @@ export function ReservationsView({
 
   async function payWithMercadoPago() {
     if (!checkinReservation) return;
+    if (!checkinRoomId) {
+      setCheckinError("Asigna una habitación física antes de cobrar.");
+      return;
+    }
 
     setCheckinError(null);
     setIsRedirectingToMp(true);
@@ -268,6 +347,7 @@ export function ReservationsView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservaId: checkinReservation.id,
+          roomId: checkinRoomId
         }),
       });
       const data = await response.json().catch(() => null);
@@ -417,9 +497,11 @@ export function ReservationsView({
         new Date(checkinReservation.checkOut)
       )
     : 0;
+
+  const selectedCheckinRoom = rooms.find((r) => r.id === checkinRoomId);
   const checkinAmount = checkinReservation?.groupMember?.esFree
     ? 0
-    : checkinNights * (checkinReservation?.room.pricePerNight ?? 0);
+    : checkinNights * (selectedCheckinRoom?.pricePerNight ?? 0);
 
   const checkoutExtras = checkoutReservation
     ? parseExtras(checkoutReservation.extras)
@@ -481,34 +563,33 @@ export function ReservationsView({
                       id="dni"
                       required
                       className="flex-1"
+                      inputMode={documentType === "DNI" ? "numeric" : "text"}
                       value={dni}
-                      onChange={(event) => setDni(event.target.value)}
+                      onChange={(event) => {
+                        const val = event.target.value;
+                        if (documentType === "DNI") {
+                          setDni(val.replace(/\D/g, ""));
+                        } else {
+                          setDni(val.replace(/[^a-zA-Z0-9]/g, ""));
+                        }
+                      }}
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="roomId">Habitación</Label>
+                  <Label htmlFor="roomType">Categoría de Habitación</Label>
                   <Select
-                    value={roomId}
-                    onValueChange={(value) => setRoomId(value ?? "")}
+                    value={roomType}
+                    onValueChange={(value) => setRoomType(value ?? "")}
                   >
-                    <SelectTrigger id="roomId" className="w-full">
-                      <SelectValue placeholder="Selecciona una habitación">
-                        {(value: string | null) => {
-                          const room = rooms.find(
-                            (candidate) => candidate.id === value
-                          );
-                          return room
-                            ? `Habitación ${room.number} · ${room.type}`
-                            : "Selecciona una habitación";
-                        }}
-                      </SelectValue>
+                    <SelectTrigger id="roomType" className="w-full">
+                      <SelectValue placeholder="Selecciona la categoría vendida" />
                     </SelectTrigger>
                     <SelectContent>
-                      {rooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          Habitación {room.number} · {room.type}
+                      {Array.from(new Set(rooms.map(r => r.type))).map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -522,6 +603,7 @@ export function ReservationsView({
                       id="checkIn"
                       type="date"
                       required
+                      min={new Date().toLocaleDateString("en-CA")}
                       value={checkIn}
                       onChange={(event) => setCheckIn(event.target.value)}
                     />
@@ -532,6 +614,7 @@ export function ReservationsView({
                       id="checkOut"
                       type="date"
                       required
+                      min={checkIn || new Date().toLocaleDateString("en-CA")}
                       value={checkOut}
                       onChange={(event) => setCheckOut(event.target.value)}
                     />
@@ -573,17 +656,16 @@ export function ReservationsView({
           </CardHeader>
         </Card>
       ) : (
-        <Card className="py-0">
+        <Card className="py-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Huésped</TableHead>
                 <TableHead>Documento</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Teléfono</TableHead>
+                <TableHead>Categoría</TableHead>
                 <TableHead>Habitación</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[140px]">Check-in</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[140px]">Check-out</TableHead>
                 <TableHead>Extras</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
@@ -595,7 +677,13 @@ export function ReservationsView({
                 const isPending = pendingActionId === reservation.id;
                 return (
                   <TableRow key={reservation.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {profileFor(reservation)?.vip ? (
+                        <Star
+                          className="mr-1 inline size-3.5 -translate-y-px fill-amber-400 text-amber-400"
+                          aria-label="Huésped VIP"
+                        />
+                      ) : null}
                       {reservation.guestName}
                       {reservation.groupMember?.esFree ? (
                         <Badge variant="secondary" className="ml-2">
@@ -603,17 +691,22 @@ export function ReservationsView({
                         </Badge>
                       ) : null}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {formatDocumentType(reservation.documentType)}{" "}
                       {reservation.dni}
                     </TableCell>
-                    <TableCell>{reservation.email ?? "—"}</TableCell>
-                    <TableCell>{reservation.phone ?? "—"}</TableCell>
-                    <TableCell>{reservation.room.number}</TableCell>
+                    <TableCell>{reservation.roomType}</TableCell>
                     <TableCell>
+                      {reservation.room ? (
+                        reservation.room.number
+                      ) : (
+                        <span className="italic text-muted-foreground">A asignar</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap min-w-[140px]">
                       {formatDate(new Date(reservation.checkIn))}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap min-w-[140px]">
                       {formatDate(new Date(reservation.checkOut))}
                     </TableCell>
                     <TableCell>
@@ -645,7 +738,7 @@ export function ReservationsView({
                               variant="outline"
                               className="border-green-600/30 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25"
                               disabled={isPending}
-                              onClick={() => openCheckIn(reservation)}
+                              onClick={() => startCheckIn(reservation)}
                             >
                               Check-in
                             </Button>
@@ -676,6 +769,7 @@ export function ReservationsView({
         </Card>
       )}
 
+      {/* Modal Extras */}
       <Dialog
         open={extrasReservation !== null}
         onOpenChange={(nextOpen) => {
@@ -777,6 +871,45 @@ export function ReservationsView({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Preferencias */}
+      <Dialog
+        open={prefsReservation !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPrefsReservation(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Antes del check-in de {prefsReservation?.guestName}
+            </DialogTitle>
+            <DialogDescription>
+              Este huésped tiene indicaciones cargadas. Tenelas presentes al
+              recibirlo.
+            </DialogDescription>
+          </DialogHeader>
+
+          {prefsReservation ? (
+            <GuestPreferencesNotice
+              profile={profileFor(prefsReservation) ?? null}
+            />
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const reservation = prefsReservation;
+                setPrefsReservation(null);
+                if (reservation) openCheckIn(reservation);
+              }}
+            >
+              Entendido, seguir al cobro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Check-in */}
       <Dialog
         open={checkinReservation !== null}
         onOpenChange={(nextOpen) => {
@@ -785,16 +918,64 @@ export function ReservationsView({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cobro de alojamiento</DialogTitle>
+            <DialogTitle>Asignación y Cobro</DialogTitle>
             <DialogDescription>
-              Confirma el pago para hacer check-in de{" "}
-              {checkinReservation?.guestName}.
+              Asigná la habitación y confirmá el pago de {checkinReservation?.guestName}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="checkinRoomId">Habitación Física</Label>
+              <Select
+                value={checkinRoomId}
+                onValueChange={(value) => setCheckinRoomId(value ?? "")}
+              >
+                <SelectTrigger id="checkinRoomId" className="w-full">
+                  <SelectValue placeholder="Seleccioná dónde alojarlo">
+                    {(value: string | null) => {
+                      const room = rooms.find((r) => r.id === value);
+                      return room
+                        ? `Hab. ${room.number} (${room.type})`
+                        : "Seleccioná dónde alojarlo";
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingSafeRooms ? (
+                    <SelectItem value="loading" disabled>
+                      Calculando disponibilidad...
+                    </SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="header_1" disabled className="font-semibold text-primary">
+                        --- Sugeridas ({checkinReservation?.roomType}) ---
+                      </SelectItem>
+                      {safeRooms
+                        .filter((r) => r.type === checkinReservation?.roomType)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            Hab. {room.number} {room.status === "CLEANING" ? "(En limpieza)" : ""}
+                          </SelectItem>
+                        ))}
+                      <SelectItem value="header_2" disabled className="font-semibold text-primary mt-2">
+                        --- Otras Disponibles (Upgrades) ---
+                      </SelectItem>
+                      {safeRooms
+                        .filter((r) => r.type !== checkinReservation?.roomType)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            Hab. {room.number} ({room.type}) {room.status === "CLEANING" ? "- En limpieza" : ""}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="rounded-md border p-3 text-sm text-muted-foreground">
-              Habitación {checkinReservation?.room.number} · {checkinNights}{" "}
+              Habitación {selectedCheckinRoom?.number ?? "A asignar"} · {checkinNights}{" "}
               noche(s)
               {checkinReservation?.groupMember?.esFree ? (
                 <span className="ml-2">
@@ -804,6 +985,12 @@ export function ReservationsView({
               <p className="mt-1 text-base font-semibold text-foreground">
                 {formatCurrency(checkinAmount)}
               </p>
+              {!checkinReservation?.groupMember?.esFree && selectedCheckinRoom ? (
+                <p className="mt-0.5 text-xs">
+                  {checkinNights} noche(s) ×{" "}
+                  {formatCurrency(selectedCheckinRoom.pricePerNight)}.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -879,6 +1066,7 @@ export function ReservationsView({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Check-out */}
       <Dialog
         open={checkoutReservation !== null}
         onOpenChange={(nextOpen) => {

@@ -51,11 +51,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
 
-  const guestName =
-    typeof body?.guestName === "string" ? body.guestName.trim() : "";
+  const guestName = typeof body?.guestName === "string" ? body.guestName.trim() : "";
   const dni = typeof body?.dni === "string" ? body.dni.trim() : "";
   const documentType = body?.documentType as DocumentType | undefined;
-  const roomId = typeof body?.roomId === "string" ? body.roomId : "";
+  const roomType = typeof body?.roomType === "string" ? body.roomType.trim() : "";
   const checkInRaw = typeof body?.checkIn === "string" ? body.checkIn : "";
   const checkOutRaw = typeof body?.checkOut === "string" ? body.checkOut : "";
 
@@ -64,12 +63,23 @@ export async function POST(request: NextRequest) {
     !dni ||
     !documentType ||
     !DOCUMENT_TYPES.includes(documentType) ||
-    !roomId ||
+    !roomType ||
     !checkInRaw ||
     !checkOutRaw
   ) {
     return NextResponse.json(
       { error: "Faltan datos obligatorios." },
+      { status: 400 }
+    );
+  }
+
+  // Validación de formato de documento
+  const isDniValid = documentType === "DNI" && /^\d{7,}$/.test(dni);
+  const isPassportValid = documentType === "PASAPORTE" && /^[a-zA-Z0-9]+$/.test(dni);
+
+  if (!isDniValid && !isPassportValid) {
+    return NextResponse.json(
+      { error: "Formato de documento inválido." },
       { status: 400 }
     );
   }
@@ -88,28 +98,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const room = await prisma.room.findUnique({ where: { id: roomId } });
+  // 1. Contar la cantidad de habitaciones físicas que existen DE ESTE TIPO
+  const totalRoomsOfType = await prisma.room.count({
+    where: { hotelId: session.user.hotelId, type: roomType }
+  });
 
-  if (!room || room.hotelId !== session.user.hotelId) {
+  if (totalRoomsOfType === 0) {
     return NextResponse.json(
-      { error: "Habitación no encontrada." },
-      { status: 404 }
+      { error: `El hotel no tiene habitaciones de tipo "${roomType}".` },
+      { status: 400 }
     );
   }
 
-  const overlapping = await prisma.reservation.findFirst({
+  // 2. Contar reservas activas que compiten por ese tipo en las mismas fechas
+  const overlappingReservations = await prisma.reservation.count({
     where: {
       hotelId: session.user.hotelId,
-      roomId,
+      roomType: roomType, 
       ...blockingReservationFilter(),
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
     },
   });
 
-  if (overlapping) {
+  // 3. Evaluar disponibilidad por tipología
+  if (overlappingReservations >= totalRoomsOfType) {
     return NextResponse.json(
-      { error: "La habitación ya tiene una reserva en ese rango de fechas." },
+      { error: `No hay disponibilidad de habitaciones ${roomType} para estas fechas.` },
       { status: 409 }
     );
   }
@@ -119,9 +134,9 @@ export async function POST(request: NextRequest) {
       guestName,
       dni,
       documentType,
+      roomType, // Guardamos la categoría que compró
       checkIn,
       checkOut,
-      roomId,
       hotelId: session.user.hotelId,
     },
     include: { room: true, groupMember: true },

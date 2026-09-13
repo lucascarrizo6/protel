@@ -2,32 +2,35 @@ import { prisma } from "@/lib/prisma";
 import { nightsBetween } from "@/lib/nights-between";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
-/**
- * Registra el pago de alojamiento y confirma el check-in: crea la factura
- * PAGADA, pasa la reserva a CONFIRMADA y la habitación a OCCUPIED, todo en
- * una transacción. Usado tanto por el check-in manual como por el webhook
- * de MercadoPago, para que ambos caminos tengan exactamente el mismo efecto.
- *
- * Devuelve `null` si la reserva no existe o ya no está PENDIENTE (evita
- * doble cobro si se llama más de una vez, p.ej. por reintentos del webhook).
- */
 export async function confirmCheckInPayment(
   reservationId: string,
-  paymentMethod: PaymentMethod
+  paymentMethod: PaymentMethod,
+  roomId: string
 ) {
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    include: { room: true, groupMember: true },
+    include: { groupMember: true },
   });
 
   if (!reservation || reservation.status !== "PENDIENTE") {
     return null;
   }
 
+  const selectedRoom = await prisma.room.findUnique({
+    where: { id: roomId }
+  });
+
+  if (!selectedRoom) {
+    throw new Error("La habitación seleccionada no existe.");
+  }
+
+  if (selectedRoom.status === "OCCUPIED" || selectedRoom.status === "BLOCKED") {
+    throw new Error(`La habitación ${selectedRoom.number} no está disponible (Estado: ${selectedRoom.status}).`);
+  }
+
   const amount = reservation.groupMember?.esFree
     ? 0
-    : nightsBetween(reservation.checkIn, reservation.checkOut) *
-      reservation.room.pricePerNight;
+    : nightsBetween(reservation.checkIn, reservation.checkOut) * selectedRoom.pricePerNight;
 
   return prisma.$transaction(async (tx) => {
     const current = await tx.reservation.findUniqueOrThrow({
@@ -36,6 +39,20 @@ export async function confirmCheckInPayment(
 
     if (current.status !== "PENDIENTE") {
       throw new Error("CONFLICT");
+    }
+
+    // VALIDACIÓN CRÍTICA: Evitar superposición física en la misma habitación
+    const overlapping = await tx.reservation.count({
+      where: {
+        roomId: roomId,
+        status: { in: ["CONFIRMADA", "COMPLETADA"] },
+        checkIn: { lt: reservation.checkOut },
+        checkOut: { gt: reservation.checkIn },
+      }
+    });
+
+    if (overlapping > 0) {
+      throw new Error(`La habitación ${selectedRoom.number} ya tiene otra reserva asignada en estas fechas.`);
     }
 
     await tx.invoice.create({
@@ -51,12 +68,15 @@ export async function confirmCheckInPayment(
 
     const updated = await tx.reservation.update({
       where: { id: reservationId },
-      data: { status: "CONFIRMADA" },
+      data: { 
+        status: "CONFIRMADA",
+        roomId: roomId 
+      },
       include: { room: true, groupMember: true },
     });
 
     await tx.room.update({
-      where: { id: reservation.roomId },
+      where: { id: roomId },
       data: { status: "OCCUPIED" },
     });
 

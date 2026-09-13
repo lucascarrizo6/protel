@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type { UserRole } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import { formatDate } from "@/lib/format-date";
 import { formatRole, USER_ROLES } from "@/lib/format-role";
 import { slugify } from "@/lib/slugify";
 import {
+  DEFAULT_HOTEL_MODULES,
   HOTEL_MODULE_KEYS,
   HOTEL_MODULE_LABELS,
   type HotelModuleKey,
@@ -199,14 +201,28 @@ export function SuperAdminView({
     valor: boolean
   ) {
     setTogglingModule(modulo);
-    const previous = hotel.modules?.[modulo] ?? true;
-    setHotels((prev) =>
-      prev.map((h) =>
-        h.id === hotel.id && h.modules
-          ? { ...h, modules: { ...h.modules, [modulo]: valor } }
-          : h
-      )
-    );
+    const previous = hotel.modules?.[modulo] ?? DEFAULT_HOTEL_MODULES[modulo];
+
+    // Se reconstruye el objeto completo desde los defaults por si el hotel no
+    // tiene todavía una fila HotelModules (modules === null): así el toggle no
+    // queda como no-op y el Switch controlado puede moverse.
+    const applyModule = (value: boolean) =>
+      setHotels((prev) =>
+        prev.map((h) =>
+          h.id === hotel.id
+            ? {
+                ...h,
+                modules: {
+                  ...DEFAULT_HOTEL_MODULES,
+                  ...h.modules,
+                  [modulo]: value,
+                },
+              }
+            : h
+        )
+      );
+
+    applyModule(valor);
 
     try {
       const response = await fetch(
@@ -220,12 +236,9 @@ export function SuperAdminView({
 
       if (!response.ok) throw new Error("Request failed");
     } catch {
-      setHotels((prev) =>
-        prev.map((h) =>
-          h.id === hotel.id && h.modules
-            ? { ...h, modules: { ...h.modules, [modulo]: previous } }
-            : h
-        )
+      applyModule(previous);
+      toast.error(
+        `No se pudo cambiar el módulo ${HOTEL_MODULE_LABELS[modulo]}. Probá de nuevo.`
       );
     } finally {
       setTogglingModule(null);
@@ -480,7 +493,10 @@ export function SuperAdminView({
                         {HOTEL_MODULE_LABELS[key]}
                       </span>
                       <Switch
-                        checked={selectedHotel.modules?.[key] ?? true}
+                        checked={
+                          selectedHotel.modules?.[key] ??
+                          DEFAULT_HOTEL_MODULES[key]
+                        }
                         disabled={togglingModule === key}
                         onCheckedChange={(checked) =>
                           handleToggleModule(selectedHotel, key, checked)

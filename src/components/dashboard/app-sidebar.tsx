@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  Wrench,
 } from "lucide-react";
 import type { UserRole } from "@/generated/prisma/enums";
 import type { HotelModuleKey } from "@/lib/super-admin";
@@ -33,6 +34,13 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Inicio", href: "/dashboard", icon: Home, moduleKey: null },
   { title: "Habitaciones", href: "/dashboard/habitaciones", icon: BedDouble, moduleKey: null },
+  {
+    title: "Mantenimiento",
+    href: "/dashboard/mantenimiento",
+    icon: Wrench,
+    moduleKey: "mantenimiento",
+    roles: ["SUPER_ADMIN", "HOTEL_ADMIN", "RECEPTIONIST", "MAINTENANCE"],
+  },
   {
     title: "Reservas",
     href: "/dashboard/reservas",
@@ -103,12 +111,15 @@ export function AppSidebar({
   const isCollapsed = state === "collapsed";
 
 const visibleNavItems = navItems.filter((item) => {
-    // 1. Regla estricta para Mucamas: SOLO ven su módulo
+    // 1. Reglas estrictas para roles operativos: SOLO ven su módulo
     if (role === "HOUSEKEEPING") {
       return item.moduleKey === "mucama";
     }
+    if (role === "MAINTENANCE") {
+      return item.moduleKey === "mantenimiento";
+    }
 
-    // 2. Reglas normales para Administradores y Super Admins
+    // 2. Reglas normales para Administradores, Recepcionistas y Super Admins
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
       return false;
     }
@@ -118,7 +129,7 @@ const visibleNavItems = navItems.filter((item) => {
     }
     return true;
   });
-
+  
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>

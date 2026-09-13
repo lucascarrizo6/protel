@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import type { Room } from "@/generated/prisma/client";
 import type { RoomStatus } from "@/generated/prisma/enums";
@@ -58,9 +57,19 @@ export function RoomCard({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    setRoom(initialRoom);
+    if (!open) {
+      setStatus(initialRoom.status);
+      setNotes(initialRoom.notes ?? "");
+    }
+  }, [initialRoom, open]);
+
+
 
   const isMaintenance = room.status === "MANTENIMIENTO";
   const canDelete = room.status === "AVAILABLE";
@@ -71,6 +80,8 @@ export function RoomCard({
       setStatus(room.status);
       setNotes(room.notes ?? "");
       setError(null);
+      setConfirmDelete(false);
+      setDeleteError(null);
     }
   }
 
@@ -129,22 +140,22 @@ export function RoomCard({
     <Card className={isMaintenance ? "ring-1 ring-red-500/60" : undefined}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full overflow-hidden">
             <CardTitle className="flex items-center gap-1.5 text-xl">
-              Habitación {room.number}
+              Hab. {room.number}
               {isMaintenance ? (
                 <AlertTriangle
-                  className="size-4 text-red-600 dark:text-red-400"
+                  className="size-4 text-red-600 dark:text-red-400 shrink-0"
                   aria-label="En mantenimiento"
                 />
               ) : null}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="truncate">
               Piso {room.floor} · {room.type} · {room.capacity}{" "}
               {room.capacity === 1 ? "persona" : "personas"}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {room.notes ? (
               <Tooltip>
                 <TooltipTrigger
@@ -167,14 +178,14 @@ export function RoomCard({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm font-medium">
+        <p className="text-sm font-medium truncate" title={formatCurrency(room.pricePerNight)}>
           {formatCurrency(room.pricePerNight)}{" "}
           <span className="font-normal text-muted-foreground">/ noche</span>
         </p>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger render={<Button variant="outline" size="sm" />}>
+          <DialogTrigger render={<Button variant="outline" size="sm" className="w-full" />}>
             Editar estado y notas
           </DialogTrigger>
           <DialogContent>
@@ -224,67 +235,66 @@ export function RoomCard({
                   {error}
                 </p>
               ) : null}
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isSaving}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? "Guardando…" : "Guardar cambios"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {canDelete ? (
-          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <DialogTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" className="ml-auto" />
-              }
-            >
-              <Trash2 className="size-4 text-destructive" />
-              <span className="sr-only">Eliminar habitación</span>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Eliminar habitación {room.number}</DialogTitle>
-                <DialogDescription>
-                  Esta acción no se puede deshacer. ¿Confirmas que quieres
-                  eliminar esta habitación?
-                </DialogDescription>
-              </DialogHeader>
-
               {deleteError ? (
                 <p role="alert" className="text-sm text-destructive">
                   {deleteError}
                 </p>
               ) : null}
+            </div>
 
-              <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-4 mt-4">
+              {canDelete ? (
+                confirmDelete ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-destructive font-medium">¿Seguro?</span>
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      size="sm" 
+                      onClick={handleDelete} 
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? "..." : "Sí, eliminar"}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setConfirmDelete(false)} 
+                      disabled={isDeleting}
+                    >
+                      No
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    <Trash2 className="size-4 mr-2" /> Eliminar
+                  </Button>
+                )
+              ) : (
+                <div />
+              )}
+              
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
                 <Button
                   variant="outline"
-                  onClick={() => setDeleteOpen(false)}
-                  disabled={isDeleting}
+                  onClick={() => setOpen(false)}
+                  disabled={isSaving}
                 >
                   Cancelar
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Eliminando…" : "Eliminar"}
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Guardando…" : "Guardar cambios"}
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : null}
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardFooter>
     </Card>
   );

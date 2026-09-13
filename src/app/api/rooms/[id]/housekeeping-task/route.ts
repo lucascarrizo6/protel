@@ -27,6 +27,7 @@ export async function PATCH(
     );
   }
 
+  // Acá ya traemos la habitación de la BD, así que aprovechamos su estado más abajo
   const room = await prisma.room.findUnique({
     where: { id: params.id },
     include: { housekeepingTask: true },
@@ -72,6 +73,30 @@ export async function PATCH(
       hotelId: session.user.hotelId,
     },
   });
+
+  // 👇 LÓGICA AUTOMÁTICA DE PROTECCIÓN (De Mucama a Recepción) 👇
+  if (body?.limpiadaHoy === true) {
+    // Usamos "CLEANING" tal como lo pide Prisma
+    if (room.status === "CLEANING") {
+      
+      // Buscamos una reserva activa usando "CONFIRMADA"
+      const activeReservation = await prisma.reservation.findFirst({
+        where: {
+          roomId: params.id,
+          status: "CONFIRMADA"
+        }
+      });
+
+      // Si hay huésped -> OCCUPIED. Si no hay huésped -> AVAILABLE.
+      const newStatus = activeReservation ? "OCCUPIED" : "AVAILABLE";
+
+      await prisma.room.update({
+        where: { id: params.id },
+        data: { status: newStatus }
+      });
+    }
+  }
+  // 👆 FIN DE LA LÓGICA 👆
 
   return NextResponse.json(task);
 }
