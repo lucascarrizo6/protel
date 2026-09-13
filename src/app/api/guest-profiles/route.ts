@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 function clean(value: unknown): string | null {
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const dni = request.nextUrl.searchParams.get("dni") ?? "";
@@ -42,6 +46,9 @@ export async function PUT(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
