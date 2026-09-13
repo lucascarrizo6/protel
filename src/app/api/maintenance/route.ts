@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
     include: { room: { select: { number: true, floor: true } } },
     orderBy: estado === "resuelto"
       ? [{ resolvedAt: "desc" }]
-      : [{ severity: "asc" }, { createdAt: "asc" }],
+      : [
+          { severity: "asc" }, 
+          { room: { number: "asc" } }, 
+          { createdAt: "asc" }
+        ],
   });
 
   return NextResponse.json(issues);

@@ -153,9 +153,6 @@ const INVOICES: {
 ];
 
 async function main() {
-// Nunca hardcodear contraseñas de las cuentas demo: se toman de env vars y,
-  // si no están seteadas, se genera una al azar y se loguea una única vez
-  // (es la única forma de recuperarla, ya que no queda en texto plano en ningún lado).
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomUUID();
   const superPassword = process.env.SEED_SUPER_PASSWORD ?? crypto.randomUUID();
   const mucamaPassword = process.env.SEED_MUCAMA_PASSWORD ?? crypto.randomUUID();
@@ -209,7 +206,6 @@ async function main() {
     },
   });
 
-  // Nueva cuenta para Mucama
   await prisma.user.upsert({
     where: { email: "mucama@protel.dev" },
     update: { name: "Usuario Mucama", passwordHash: mucamaPasswordHash },
@@ -222,7 +218,6 @@ async function main() {
     },
   });
 
-  // Nueva cuenta para Mantenimiento
   await prisma.user.upsert({
     where: { email: "mantenimiento@protel.dev" },
     update: { name: "Usuario Mantenimiento", passwordHash: mantenimientoPasswordHash },
@@ -262,11 +257,15 @@ async function main() {
   const reservationsByGuest = new Map<string, string>();
 
   for (const { roomNumber, ...reservation } of RESERVATIONS) {
+    // Buscamos la definición de la habitación en el array ROOMS
+    const roomDef = ROOMS.find(r => r.number === roomNumber);
+
     const savedReservation = await prisma.reservation.create({
       data: {
         ...reservation,
         hotelId: hotel.id,
         roomId: roomsByNumber.get(roomNumber)!,
+        roomType: roomDef?.type ?? "Doble", // <-- ACA ESTA LA SOLUCIÓN MÁGICA
       },
     });
     reservationsByGuest.set(reservation.guestName, savedReservation.id);

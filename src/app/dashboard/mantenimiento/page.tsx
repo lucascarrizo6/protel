@@ -19,17 +19,24 @@ export default async function MantenimientoPage() {
   const isMaintenanceUser = session.user.role === "MAINTENANCE";
 
   const [openRaw, resolvedRaw, rooms] = await Promise.all([
+    // 1. TAREAS ABIERTAS: Ordenadas por gravedad -> N° de Habitación -> Fecha de creación
     prisma.maintenanceIssue.findMany({
       where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },
       include: { room: true },
-      orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
+      orderBy: [
+        { severity: "asc" }, 
+        { room: { number: "asc" } }, 
+        { createdAt: "asc" }
+      ],
     }),
+    // 2. TAREAS RESUELTAS
     prisma.maintenanceIssue.findMany({
       where: { hotelId, status: "RESUELTO" },
       include: { room: true },
       orderBy: [{ resolvedAt: "desc" }],
       take: 40,
     }),
+    // 3. HABITACIONES DISPONIBLES
     prisma.room.findMany({
       where: { hotelId },
       select: { id: true, number: true, floor: true },

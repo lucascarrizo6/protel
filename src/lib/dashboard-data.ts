@@ -187,9 +187,9 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     return {
       id: reservation.id,
       guestName: reservation.guestName,
-      roomNumber: reservation.room.number,
+      roomNumber: reservation.room?.number??'Sin asignar',
       nights,
-      amount: esFree ? 0 : nights * reservation.room.pricePerNight,
+      amount: esFree ? 0 : nights * (reservation.room?.pricePerNight ?? 0),
       esFree,
       vip: profile?.vip ?? false,
       vipMotivo: profile?.vipMotivo ?? null,

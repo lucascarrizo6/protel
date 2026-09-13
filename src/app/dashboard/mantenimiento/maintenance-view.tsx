@@ -179,11 +179,18 @@ export function MaintenanceView({
 
   async function submitCloseIssue() {
     if (!closingIssue) return;
+    
+    // Validaciones estrictas según el tipo de cierre
     if (closeType === "ANULAR" && !closeMotivo.trim()) {
       return toast.error("Debes ingresar un motivo para anular el reporte.");
     }
-    if (closeType === "COMPROBANTE" && !closeMotivo.trim()) {
-      return toast.error("Debes ingresar el detalle de lo realizado.");
+    if (closeType === "COMPROBANTE") {
+      if (!closeCosto.trim()) {
+        return toast.error("El costo de reparación es obligatorio.");
+      }
+      if (!closeReceipt.trim()) {
+        return toast.error("El link al comprobante es obligatorio.");
+      }
     }
 
     setSaving(true);
@@ -192,8 +199,9 @@ export function MaintenanceView({
       if (closeType === "ANULAR") {
         actionNote = `Reporte anulado: ${closeMotivo}`;
       } else {
-        const costoStr = closeCosto ? `Costo: $${closeCosto} | ` : "";
-        actionNote = `${costoStr}Detalle: ${closeMotivo}`;
+        const costoStr = `Costo: $${closeCosto}`;
+        const detalleStr = closeMotivo.trim() ? `Detalle: ${closeMotivo}` : "";
+        actionNote = [costoStr, detalleStr].filter(Boolean).join(" | ");
       }
 
       const response = await fetch(`/api/maintenance/${closingIssue.id}`, {
@@ -263,7 +271,7 @@ export function MaintenanceView({
             ) : (
               <>
                 <div className="flex flex-col gap-2">
-                  <Label>Costo de reparación ($) - Opcional</Label>
+                  <Label>Costo de reparación ($)</Label>
                   <Input
                     type="number"
                     placeholder="Ej: 15000"
@@ -272,23 +280,23 @@ export function MaintenanceView({
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Detalle de lo realizado</Label>
-                  <Textarea
-                    placeholder="Ej: Se cambió la plaqueta del aire acondicionado..."
-                    value={closeMotivo}
-                    onChange={(e) => setCloseMotivo(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Link al Remito / Factura (Opcional)</Label>
+                  <Label>Link al Remito / Factura</Label>
                   <Input
                     placeholder="https://drive.google.com/..."
                     value={closeReceipt}
                     onChange={(e) => setCloseReceipt(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Podés pegar un link a Google Drive con la foto del comprobante o transferencia.
+                    Pegá un link a Google Drive con la foto del comprobante o transferencia.
                   </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Detalle de lo realizado (Opcional)</Label>
+                  <Textarea
+                    placeholder="Ej: Se cambió la plaqueta del aire acondicionado..."
+                    value={closeMotivo}
+                    onChange={(e) => setCloseMotivo(e.target.value)}
+                  />
                 </div>
               </>
             )}
@@ -336,7 +344,6 @@ export function MaintenanceView({
                   <Select value={roomId} onValueChange={(value) => setRoomId(value ?? "")}>
                     <SelectTrigger id="mnt-room" className="w-full">
                       <SelectValue placeholder="Elegí una habitación">
-                        {/* Le decimos explícitamente qué texto mostrar cuando hay un ID seleccionado */}
                         {roomId && rooms.find(r => r.id === roomId)
                           ? `Hab. ${rooms.find(r => r.id === roomId)!.number} · Piso ${rooms.find(r => r.id === roomId)!.floor}`
                           : "Elegí una habitación"}
@@ -559,3 +566,4 @@ export function MaintenanceView({
     </div>
   );
 }
+
