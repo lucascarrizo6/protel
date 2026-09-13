@@ -20,7 +20,6 @@ export async function PATCH(
     | (typeof PAYMENT_METHODS)[number]
     | undefined;
   
-  // Extraemos la habitación que el recepcionista seleccionó en el frontend
   const roomId = typeof body?.roomId === "string" ? body.roomId : "";
 
   if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
@@ -68,19 +67,26 @@ export async function PATCH(
     );
   }
 
-  // Le pasamos el roomId a tu función central para que asigne la habitación en la DB
-  const updatedReservation = await confirmCheckInPayment(
-    params.id,
-    paymentMethod,
-    roomId
-  );
+  try {
+    const updatedReservation = await confirmCheckInPayment(
+      params.id,
+      paymentMethod,
+      roomId
+    );
 
-  if (!updatedReservation) {
+    if (!updatedReservation) {
+      return NextResponse.json(
+        { error: "No se pudo procesar el check-in." },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(updatedReservation);
+  } catch (error) {
+    // Acá atajamos la validación estricta (ej: superposición de fechas) y se la devolvemos limpia al frontend
     return NextResponse.json(
-      { error: "No se pudo procesar el check-in." },
-      { status: 409 }
+      { error: error instanceof Error ? error.message : "Error interno al asignar la habitación." },
+      { status: 400 }
     );
   }
-
-  return NextResponse.json(updatedReservation);
 }

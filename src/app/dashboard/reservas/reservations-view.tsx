@@ -136,6 +136,10 @@ export function ReservationsView({
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [isRedirectingToMp, setIsRedirectingToMp] = useState(false);
+  
+  // Nuevos estados para disponibilidad segura desde el backend
+  const [safeRooms, setSafeRooms] = useState<Room[]>([]);
+  const [isLoadingSafeRooms, setIsLoadingSafeRooms] = useState(false);
 
   const [checkoutReservation, setCheckoutReservation] = useState<ReservationWithRoom | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -160,6 +164,22 @@ export function ReservationsView({
     return () => clearTimeout(timeout);
   }, [searchParams, router]);
 
+  // Carga de habitaciones seguras al abrir el Check-in
+  useEffect(() => {
+    if (checkinReservation) {
+      setIsLoadingSafeRooms(true);
+      fetch(`/api/reservations/${checkinReservation.id}/available-rooms`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setSafeRooms(data);
+        })
+        .finally(() => setIsLoadingSafeRooms(false));
+    } else {
+      setSafeRooms([]);
+      setCheckinRoomId("");
+    }
+  }, [checkinReservation]);
+
   function resetForm() {
     setGuestName("");
     setDni("");
@@ -180,6 +200,17 @@ export function ReservationsView({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    // Validación estricta de documentos
+    if (documentType === "DNI" && !/^\d{7,}$/.test(dni)) {
+      setError("El DNI debe contener solo números y tener un mínimo de 7 dígitos.");
+      return;
+    }
+    
+    if (documentType === "PASAPORTE" && !/^[a-zA-Z0-9]+$/.test(dni)) {
+      setError("El pasaporte debe contener solo letras y números, sin espacios.");
+      return;
+    }
 
     if (!roomType) {
       setError("Selecciona una categoría de habitación.");
@@ -278,6 +309,7 @@ export function ReservationsView({
           }),
         }
       );
+      
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -286,6 +318,10 @@ export function ReservationsView({
 
       updateReservation(data as ReservationWithRoom);
       setCheckinReservation(null);
+      toast.success("Check-in completado y habitación asignada.");
+      
+      router.refresh();
+      
     } catch (err) {
       setCheckinError(
         err instanceof Error ? err.message : "No se pudo hacer el check-in."
@@ -453,7 +489,6 @@ export function ReservationsView({
     }
   }
 
-  // Cálculos dinámicos para el Check-in
   const extrasTotalDraft = sumExtras(extrasDraft);
 
   const checkinNights = checkinReservation
@@ -528,8 +563,16 @@ export function ReservationsView({
                       id="dni"
                       required
                       className="flex-1"
+                      inputMode={documentType === "DNI" ? "numeric" : "text"}
                       value={dni}
-                      onChange={(event) => setDni(event.target.value)}
+                      onChange={(event) => {
+                        const val = event.target.value;
+                        if (documentType === "DNI") {
+                          setDni(val.replace(/\D/g, ""));
+                        } else {
+                          setDni(val.replace(/[^a-zA-Z0-9]/g, ""));
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -899,28 +942,34 @@ export function ReservationsView({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="header_1" disabled className="font-semibold text-primary">
-                    --- Sugeridas ({checkinReservation?.roomType}) ---
-                  </SelectItem>
-                  {rooms
-                    .filter((r) => r.status === "AVAILABLE" || r.status === "CLEANING")
-                    .filter((r) => r.type === checkinReservation?.roomType)
-                    .map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        Hab. {room.number} {room.status === "CLEANING" ? "(En limpieza)" : ""}
+                  {isLoadingSafeRooms ? (
+                    <SelectItem value="loading" disabled>
+                      Calculando disponibilidad...
+                    </SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="header_1" disabled className="font-semibold text-primary">
+                        --- Sugeridas ({checkinReservation?.roomType}) ---
                       </SelectItem>
-                    ))}
-                  <SelectItem value="header_2" disabled className="font-semibold text-primary mt-2">
-                    --- Otras Disponibles (Upgrades) ---
-                  </SelectItem>
-                  {rooms
-                    .filter((r) => r.status === "AVAILABLE" || r.status === "CLEANING")
-                    .filter((r) => r.type !== checkinReservation?.roomType)
-                    .map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        Hab. {room.number} ({room.type}) {room.status === "CLEANING" ? "- En limpieza" : ""}
+                      {safeRooms
+                        .filter((r) => r.type === checkinReservation?.roomType)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            Hab. {room.number} {room.status === "CLEANING" ? "(En limpieza)" : ""}
+                          </SelectItem>
+                        ))}
+                      <SelectItem value="header_2" disabled className="font-semibold text-primary mt-2">
+                        --- Otras Disponibles (Upgrades) ---
                       </SelectItem>
-                    ))}
+                      {safeRooms
+                        .filter((r) => r.type !== checkinReservation?.roomType)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            Hab. {room.number} ({room.type}) {room.status === "CLEANING" ? "- En limpieza" : ""}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

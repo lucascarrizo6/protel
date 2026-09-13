@@ -73,6 +73,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validación de formato de documento
+  const isDniValid = documentType === "DNI" && /^\d{7,}$/.test(dni);
+  const isPassportValid = documentType === "PASAPORTE" && /^[a-zA-Z0-9]+$/.test(dni);
+
+  if (!isDniValid && !isPassportValid) {
+    return NextResponse.json(
+      { error: "Formato de documento inválido." },
+      { status: 400 }
+    );
+  }
+
   const checkIn = new Date(checkInRaw);
   const checkOut = new Date(checkOutRaw);
 
