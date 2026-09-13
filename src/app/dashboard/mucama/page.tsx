@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +8,12 @@ import { MobileCleaningView } from "./mobile-cleaning-view";
 
 export default async function MucamaPage() {
   const session = await getServerSession(authOptions);
+
+  // Mantenimiento tiene su propia área única; Mucama es la única excepción
+  // que sí "vive" acá, así que no usamos getScopedHome genérico en esta página.
+  if (session?.user.role === "MAINTENANCE") {
+    redirect("/dashboard/mantenimiento");
+  }
 
   const [rooms, activeReservations, mucamas] = session?.user.hotelId
     ? await Promise.all([

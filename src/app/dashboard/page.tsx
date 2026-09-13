@@ -5,14 +5,17 @@ import {
   emptyDashboardData,
   getDashboardData,
 } from "@/lib/dashboard-data";
+import { getScopedHome } from "@/lib/staff-scope";
 import { DashboardGrid } from "./dashboard-grid";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  
-  // BLOQUE DE SEGURIDAD: Expulsa a la mucama antes de que carguen los datos
-  if (session?.user?.role === "HOUSEKEEPING") {
-    redirect("/dashboard/mucama");
+
+  // BLOQUE DE SEGURIDAD: roles con área única (Mucama, Mantenimiento) van
+  // directo a su pantalla, aunque entren por /dashboard.
+  const scopedHome = getScopedHome(session?.user?.role);
+  if (scopedHome) {
+    redirect(scopedHome);
   }
 
   const hotelId = session?.user.hotelId;

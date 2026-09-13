@@ -111,6 +111,7 @@ model Hotel {
   groups            Group[]
   maintenanceIssues MaintenanceIssue[]
   guestProfiles     GuestProfile[]
+  employees         Employee[]
   afipConfig        AfipConfig?
   modules           HotelModules?
 }
@@ -270,6 +271,7 @@ model HotelModules {
   calendario   Boolean @default(true)
   reservas     Boolean @default(true)
   mantenimiento Boolean @default(true)
+  personal     Boolean @default(true)
 }
 
 model MaintenanceIssue {
@@ -328,6 +330,33 @@ model GuestProfile {
 
   @@unique([hotelId, documentType, dni])
   @@index([hotelId])
+}
+
+model Employee {
+  id        String   @id @default(cuid())
+  nombre    String
+  puesto    String
+  dni       String?
+  cuitCuil  String?
+  fechaNacimiento DateTime?
+  fechaIngreso    DateTime?
+  telefono  String?
+  email     String?
+
+  contactoEmergenciaNombre   String?
+  contactoEmergenciaTelefono String?
+
+  notas  String?
+  activo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  @@index([hotelId])
+  @@index([hotelId, activo])
 }
 
 model LoginAttempt {

@@ -1,10 +1,17 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import { RoomsView } from "./rooms-view";
 
 export default async function RoomsPage() {
   const session = await getServerSession(authOptions);
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const rooms = session?.user.hotelId
     ? await prisma.room.findMany({

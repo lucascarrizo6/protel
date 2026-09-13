@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import {
   Card,
   CardContent,
@@ -38,6 +40,11 @@ const ROOM_STATUS_ORDER: RoomStatus[] = [
 export default async function ReportesPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const [roomStatusGroups, totalRooms, invoices, reservations] = hotelId
     ? await Promise.all([

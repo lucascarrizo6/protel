@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { GuestProfileDTO } from "@/lib/guest-profile";
+import { getScopedHome } from "@/lib/staff-scope";
 import { ReservationsView } from "./reservations-view";
 
 const GUEST_PROFILE_SELECT = {
@@ -16,6 +18,11 @@ const GUEST_PROFILE_SELECT = {
 
 export default async function ReservationsPage() {
   const session = await getServerSession(authOptions);
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const [reservations, rooms, guestProfiles] = session?.user.hotelId
     ? await Promise.all([

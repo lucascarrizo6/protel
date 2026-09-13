@@ -9,6 +9,7 @@ import {
   CalendarDays,
   FileCog,
   Home,
+  IdCard,
   Receipt,
   ShieldCheck,
   Sparkles,
@@ -84,6 +85,13 @@ const navItems = [
     moduleKey: null,
   },
   {
+    title: "Personal",
+    href: "/dashboard/empleados",
+    icon: IdCard,
+    moduleKey: "personal",
+    roles: ["HOTEL_ADMIN"],
+  },
+  {
     title: "Facturación AFIP",
     href: "/dashboard/configuracion",
     icon: FileCog,
@@ -111,9 +119,12 @@ export function AppSidebar({
   const isCollapsed = state === "collapsed";
 
 const visibleNavItems = navItems.filter((item) => {
-    // 1. Regla estricta para Mucamas: SOLO ven su módulo
+    // 1. Roles con área única: SOLO ven su propio módulo, ignorando todo lo demás
     if (role === "HOUSEKEEPING") {
       return item.moduleKey === "mucama";
+    }
+    if (role === "MAINTENANCE") {
+      return item.moduleKey === "mantenimiento";
     }
 
     // 2. Reglas normales para Administradores y Super Admins

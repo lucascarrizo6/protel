@@ -8,6 +8,7 @@ export const HOTEL_MODULE_KEYS = [
   "calendario",
   "reservas",
   "mantenimiento",
+  "personal",
 ] as const;
 
 export type HotelModuleKey = (typeof HOTEL_MODULE_KEYS)[number];
@@ -20,6 +21,7 @@ export const DEFAULT_HOTEL_MODULES: Record<HotelModuleKey, boolean> = {
   calendario: true,
   reservas: true,
   mantenimiento: true,
+  personal: true,
 };
 
 export const HOTEL_MODULE_LABELS: Record<HotelModuleKey, string> = {
@@ -30,6 +32,7 @@ export const HOTEL_MODULE_LABELS: Record<HotelModuleKey, string> = {
   calendario: "Calendario",
   reservas: "Reservas",
   mantenimiento: "Mantenimiento",
+  personal: "Personal",
 };
 
 type HotelWithModulesAndCount = Hotel & {

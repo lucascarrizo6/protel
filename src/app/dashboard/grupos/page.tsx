@@ -1,11 +1,18 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import { GroupsView } from "./groups-view";
 
 export default async function GruposPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const [rooms, reservations, groups] = hotelId
     ? await Promise.all([

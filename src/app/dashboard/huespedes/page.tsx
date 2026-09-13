@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { guestProfileKey, type GuestProfileDTO } from "@/lib/guest-profile";
 import type { DocumentType } from "@/generated/prisma/enums";
+import { getScopedHome } from "@/lib/staff-scope";
 import { GuestsView, type GuestRowDTO } from "./guests-view";
 
 type GuestRow = {
@@ -19,12 +21,16 @@ export default async function HuespedesPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
 
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
+
   // Agrupado por DNI+tipo de documento en la propia query (CTE + DISTINCT ON)
   // en vez de traer todas las reservas con todas sus facturas y agregar en JS.
-  // TODO: reactivar la carga de GuestProfile (preferencias/VIP) cuando exista
-  // el modelo en el schema. Por ahora la página se arma solo con Reservation.
-  const guestRows = hotelId
-    ? await prisma.$queryRaw<GuestRow[]>`
+  const [guestRows, profiles] = hotelId
+    ? await Promise.all([
+        prisma.$queryRaw<GuestRow[]>`
           WITH guest_stats AS (
             SELECT
               r."dni" AS "dni",
@@ -51,10 +57,28 @@ export default async function HuespedesPage() {
             AND r."checkOut" = gs."lastVisit"
             AND r."hotelId" = ${hotelId}
           ORDER BY gs."dni", gs."documentType", r."checkOut" DESC, r."id" DESC
-        `
-    : [];
+        `,
+        prisma.guestProfile.findMany({
+          where: { hotelId },
+          select: {
+            dni: true,
+            documentType: true,
+            prefRecepcion: true,
+            prefMucama: true,
+            prefCocina: true,
+            vip: true,
+            vipMotivo: true,
+          },
+        }),
+      ])
+    : [[], []];
 
-  const profileByKey = new Map<string, GuestProfileDTO>();
+  const profileByKey = new Map(
+    (profiles as GuestProfileDTO[]).map((profile) => [
+      guestProfileKey(profile.documentType, profile.dni),
+      profile,
+    ])
+  );
 
   const guests: GuestRowDTO[] = guestRows
     .map((row) => ({

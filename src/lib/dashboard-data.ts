@@ -151,18 +151,18 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       },
       include: { room: true, groupMember: true },
     }),
-    // TODO: reactivar cuando exista el modelo GuestProfile en el schema
-    Promise.resolve(
-      [] as {
-        dni: string | null;
-        documentType: string | null;
-        prefRecepcion: string | null;
-        prefMucama: string | null;
-        prefCocina: string | null;
-        vip: boolean;
-        vipMotivo: string | null;
-      }[]
-    ),
+    prisma.guestProfile.findMany({
+      where: { hotelId },
+      select: {
+        dni: true,
+        documentType: true,
+        prefRecepcion: true,
+        prefMucama: true,
+        prefCocina: true,
+        vip: true,
+        vipMotivo: true,
+      },
+    }),
   ]);
 
   const profileByKey = new Map(
