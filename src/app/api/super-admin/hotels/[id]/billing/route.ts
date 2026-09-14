@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { BILLING_STATUSES } from "@/lib/super-admin";
 import type { BillingStatus } from "@/generated/prisma/enums";
 
@@ -91,6 +92,14 @@ export async function PATCH(
       },
     });
 
+    await logAudit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? session.user.email ?? "Super Admin",
+      accion: "facturacion.pago_registrado",
+      hotelId: hotel.id,
+      hotelName: hotel.name,
+    });
+
     return NextResponse.json(billing);
   }
 
@@ -125,6 +134,14 @@ export async function PATCH(
       proximoVencimiento: cleanDate(body?.proximoVencimiento),
       notas: clean(body?.notas),
     },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    actorName: session.user.name ?? session.user.email ?? "Super Admin",
+    accion: "facturacion.actualizada",
+    hotelId: hotel.id,
+    hotelName: hotel.name,
   });
 
   return NextResponse.json(billing);

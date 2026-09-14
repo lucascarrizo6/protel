@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Trash2 } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { UserRole } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +84,8 @@ type UsuarioSummary = {
   creadoEn: string;
 };
 
+const HOTEL_USER_ROLES = USER_ROLES.filter((role) => role !== "SUPER_ADMIN");
+
 export function SuperAdminView({
   initialHotels,
 }: {
@@ -93,6 +95,7 @@ export function SuperAdminView({
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(
     initialHotels[0]?.id ?? null
   );
+  const [hotelSearch, setHotelSearch] = useState("");
   const [tab, setTab] = useState<"modulos" | "facturacion" | "usuarios">(
     "modulos"
   );
@@ -114,7 +117,33 @@ export function SuperAdminView({
   const [usuariosError, setUsuariosError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [userNombre, setUserNombre] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [showUserPassword, setShowUserPassword] = useState(false);
+  const [userRol, setUserRol] = useState<UserRole>("RECEPTIONIST");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+
+  const [resetPasswordUser, setResetPasswordUser] = useState<UsuarioSummary | null>(
+    null
+  );
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(
+    null
+  );
+
   const selectedHotel = hotels.find((hotel) => hotel.id === selectedHotelId) ?? null;
+
+  const normalizedSearch = hotelSearch.trim().toLowerCase();
+  const filteredHotels = normalizedSearch
+    ? hotels.filter((hotel) =>
+        hotel.nombre.toLowerCase().includes(normalizedSearch)
+      )
+    : hotels;
 
   function resetCreateForm() {
     setName("");
@@ -358,66 +387,195 @@ export function SuperAdminView({
     }
   }
 
+  function openResetPassword(usuario: UsuarioSummary) {
+    setResetPasswordUser(usuario);
+    setResetPassword("");
+    setShowResetPassword(false);
+    setResetPasswordError(null);
+  }
+
+  async function handleResetPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!resetPasswordUser) return;
+    setResetPasswordError(null);
+
+    if (resetPassword.length < 8) {
+      setResetPasswordError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    setIsResettingPassword(true);
+
+    try {
+      const response = await fetch(
+        `/api/super-admin/usuarios/${resetPasswordUser.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: resetPassword }),
+        }
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo resetear la contraseña.");
+      }
+
+      toast.success(`Contraseña actualizada para ${resetPasswordUser.nombre}.`);
+      setResetPasswordUser(null);
+    } catch (err) {
+      setResetPasswordError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo resetear la contraseña. Inténtalo de nuevo."
+      );
+    } finally {
+      setIsResettingPassword(false);
+    }
+  }
+
+  function resetCreateUserForm() {
+    setUserNombre("");
+    setUserEmail("");
+    setUserPassword("");
+    setShowUserPassword(false);
+    setUserRol("RECEPTIONIST");
+    setCreateUserError(null);
+  }
+
+  function handleCreateUserOpenChange(nextOpen: boolean) {
+    setCreateUserOpen(nextOpen);
+    if (nextOpen) resetCreateUserForm();
+  }
+
+  async function handleCreateUserSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedHotel) return;
+    setCreateUserError(null);
+
+    if (!userNombre.trim() || !userEmail.trim() || !userPassword) {
+      setCreateUserError("Completa nombre, email y contraseña.");
+      return;
+    }
+
+    if (userPassword.length < 8) {
+      setCreateUserError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    setIsCreatingUser(true);
+
+    try {
+      const response = await fetch(
+        `/api/super-admin/hotels/${selectedHotel.id}/usuarios`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: userNombre,
+            email: userEmail,
+            password: userPassword,
+            rol: userRol,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo crear el usuario.");
+      }
+
+      const created = data as UsuarioSummary;
+      setUsuarios((prev) => [...prev, created]);
+      setHotels((prev) =>
+        prev.map((h) =>
+          h.id === selectedHotel.id
+            ? { ...h, _count: { usuarios: h._count.usuarios + 1 } }
+            : h
+        )
+      );
+      setCreateUserOpen(false);
+    } catch (err) {
+      setCreateUserError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo crear el usuario. Inténtalo de nuevo."
+      );
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
       <div className="flex flex-col gap-3">
-        <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
-          <DialogTrigger render={<Button size="sm" className="self-start" />}>
-            Crear hotel
-          </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleCreateSubmit} className="contents">
-              <DialogHeader>
-                <DialogTitle>Crear hotel</DialogTitle>
-                <DialogDescription>
-                  Registra un nuevo hotel en la plataforma.
-                </DialogDescription>
-              </DialogHeader>
+        <div className="flex flex-wrap gap-2">
+          <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
+            <DialogTrigger render={<Button size="sm" />}>
+              Crear hotel
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={handleCreateSubmit} className="contents">
+                <DialogHeader>
+                  <DialogTitle>Crear hotel</DialogTitle>
+                  <DialogDescription>
+                    Registra un nuevo hotel en la plataforma.
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="hotelName">Nombre</Label>
-                  <Input
-                    id="hotelName"
-                    required
-                    value={name}
-                    onChange={(event) => handleNameChange(event.target.value)}
-                  />
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="hotelName">Nombre</Label>
+                    <Input
+                      id="hotelName"
+                      required
+                      value={name}
+                      onChange={(event) => handleNameChange(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="hotelSlug">Slug</Label>
+                    <Input
+                      id="hotelSlug"
+                      required
+                      value={slug}
+                      onChange={(event) => handleSlugChange(event.target.value)}
+                    />
+                  </div>
+
+                  {createError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {createError}
+                    </p>
+                  ) : null}
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="hotelSlug">Slug</Label>
-                  <Input
-                    id="hotelSlug"
-                    required
-                    value={slug}
-                    onChange={(event) => handleSlugChange(event.target.value)}
-                  />
-                </div>
-
-                {createError ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {createError}
-                  </p>
-                ) : null}
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateOpen(false)}
-                  disabled={isCreating}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isCreating}>
-                  {isCreating ? "Creando…" : "Crear hotel"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateOpen(false)}
+                    disabled={isCreating}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? "Creando…" : "Crear hotel"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<a href="/api/super-admin/hotels/export" download />}
+          >
+            Exportar CSV
+          </Button>
+        </div>
 
         {hotels.length === 0 ? (
           <Card>
@@ -429,7 +587,18 @@ export function SuperAdminView({
             </CardHeader>
           </Card>
         ) : (
-          hotels.map((hotel) => (
+          <>
+            <Input
+              placeholder="Buscar hotel…"
+              value={hotelSearch}
+              onChange={(event) => setHotelSearch(event.target.value)}
+            />
+            {filteredHotels.length === 0 ? (
+              <p className="px-1 text-sm text-muted-foreground">
+                Ningún hotel coincide con &quot;{hotelSearch}&quot;.
+              </p>
+            ) : null}
+            {filteredHotels.map((hotel) => (
             <Card
               key={hotel.id}
               className={
@@ -480,7 +649,8 @@ export function SuperAdminView({
                 </div>
               </CardContent>
             </Card>
-          ))
+            ))}
+          </>
         )}
       </div>
 
@@ -495,6 +665,7 @@ export function SuperAdminView({
             </CardHeader>
           </Card>
         ) : (
+          <div key={selectedHotel.id} className="hotel-switch-animate">
           <Tabs value={tab} onValueChange={handleTabChange}>
             <TabsList>
               <TabsTrigger value="modulos">Módulos</TabsTrigger>
@@ -547,7 +718,120 @@ export function SuperAdminView({
               />
             </TabsContent>
 
-            <TabsContent value="usuarios">
+            <TabsContent value="usuarios" className="flex flex-col gap-3">
+              <Dialog open={createUserOpen} onOpenChange={handleCreateUserOpenChange}>
+                <DialogTrigger render={<Button size="sm" className="self-start" />}>
+                  Crear usuario
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleCreateUserSubmit} className="contents">
+                    <DialogHeader>
+                      <DialogTitle>Crear usuario</DialogTitle>
+                      <DialogDescription>
+                        Da de alta un usuario para {selectedHotel.nombre}.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="userNombre">Nombre</Label>
+                        <Input
+                          id="userNombre"
+                          required
+                          value={userNombre}
+                          onChange={(event) => setUserNombre(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="userEmail">Email</Label>
+                        <Input
+                          id="userEmail"
+                          type="email"
+                          required
+                          value={userEmail}
+                          onChange={(event) => setUserEmail(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="userPassword">Contraseña</Label>
+                        <div className="relative">
+                          <Input
+                            id="userPassword"
+                            type={showUserPassword ? "text" : "password"}
+                            required
+                            minLength={8}
+                            className="pr-8"
+                            value={userPassword}
+                            onChange={(event) => setUserPassword(event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowUserPassword((prev) => !prev)}
+                            className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
+                          >
+                            {showUserPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                            <span className="sr-only">
+                              {showUserPassword
+                                ? "Ocultar contraseña"
+                                : "Mostrar contraseña"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="userRol">Rol</Label>
+                        <Select
+                          value={userRol}
+                          onValueChange={(value) => value && setUserRol(value as UserRole)}
+                        >
+                          <SelectTrigger id="userRol">
+                            <SelectValue>
+                              {(value: UserRole | null) =>
+                                value ? formatRole(value) : ""
+                              }
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {HOTEL_USER_ROLES.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {formatRole(role)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {createUserError ? (
+                        <p role="alert" className="text-sm text-destructive">
+                          {createUserError}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setCreateUserOpen(false)}
+                        disabled={isCreatingUser}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isCreatingUser}>
+                        {isCreatingUser ? "Creando…" : "Crear usuario"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
               <Card className="py-0">
                 {isLoadingUsuarios ? (
                   <CardContent className="p-4 text-sm text-muted-foreground">
@@ -609,11 +893,19 @@ export function SuperAdminView({
                             {formatDate(new Date(usuario.creadoEn))}
                           </TableCell>
                           <TableCell className="text-right">
-                            {usuario.rol === "SUPER_ADMIN" ? (
-                              <span className="text-xs text-muted-foreground">
-                                —
-                              </span>
-                            ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={updatingUserId === usuario.id}
+                                onClick={() => openResetPassword(usuario)}
+                              >
+                                <KeyRound className="size-4" />
+                                <span className="sr-only">
+                                  Resetear contraseña
+                                </span>
+                              </Button>
+                              {usuario.rol === "SUPER_ADMIN" ? null : (
                               <AlertDialog>
                                 <AlertDialogTrigger
                                   render={
@@ -648,7 +940,8 @@ export function SuperAdminView({
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
-                            )}
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -662,8 +955,85 @@ export function SuperAdminView({
                   </p>
                 ) : null}
               </Card>
+
+              <Dialog
+                open={resetPasswordUser !== null}
+                onOpenChange={(open) => {
+                  if (!open) setResetPasswordUser(null);
+                }}
+              >
+                <DialogContent>
+                  <form onSubmit={handleResetPasswordSubmit} className="contents">
+                    <DialogHeader>
+                      <DialogTitle>Resetear contraseña</DialogTitle>
+                      <DialogDescription>
+                        Nueva contraseña para {resetPasswordUser?.nombre}. La
+                        anterior deja de funcionar.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="resetPassword">Contraseña nueva</Label>
+                        <div className="relative">
+                          <Input
+                            id="resetPassword"
+                            type={showResetPassword ? "text" : "password"}
+                            required
+                            minLength={8}
+                            className="pr-8"
+                            value={resetPassword}
+                            onChange={(event) =>
+                              setResetPassword(event.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowResetPassword((prev) => !prev)
+                            }
+                            className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
+                          >
+                            {showResetPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                            <span className="sr-only">
+                              {showResetPassword
+                                ? "Ocultar contraseña"
+                                : "Mostrar contraseña"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {resetPasswordError ? (
+                        <p role="alert" className="text-sm text-destructive">
+                          {resetPasswordError}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setResetPasswordUser(null)}
+                        disabled={isResettingPassword}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isResettingPassword}>
+                        {isResettingPassword ? "Guardando…" : "Guardar"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
           </Tabs>
+          </div>
         )}
       </div>
     </div>
