@@ -54,6 +54,14 @@
     --status-maintenance: #a3266b;
     --series-invoiced: #2a78d6;
     --series-paid: #1baf7a;
+    --module-mercadopago: #2a78d6;
+    --module-afip: #eb6834;
+    --module-grupos: #1baf7a;
+    --module-mucama: #eda100;
+    --module-calendario: #e87ba4;
+    --module-reservas: #008300;
+    --module-mantenimiento: #4a3aa7;
+    --module-personal: #e34948;
   }
   .dark {
     --background: oklch(0.145 0 0);
@@ -94,6 +102,14 @@
     --status-maintenance: #d55181;
     --series-invoiced: #3987e5;
     --series-paid: #199e70;
+    --module-mercadopago: #3987e5;
+    --module-afip: #d95926;
+    --module-grupos: #199e70;
+    --module-mucama: #c98500;
+    --module-calendario: #d55181;
+    --module-reservas: #008300;
+    --module-mantenimiento: #9085e9;
+    --module-personal: #e66767;
   }
   * {
     @apply border-border outline-ring;
@@ -137,4 +153,24 @@
 
 .react-grid-item > .react-resizable-handle::after {
   border-color: var(--muted-foreground);
+}
+
+/* --- Super Admin: destello al cambiar de hotel seleccionado --- */
+@keyframes hotel-switch-flash {
+  from {
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.hotel-switch-animate {
+  animation: hotel-switch-flash 500ms ease-out;
 }
