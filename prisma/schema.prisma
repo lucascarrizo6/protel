@@ -415,3 +415,20 @@ model LoginAttempt {
 
   @@index([email, creadoEn])
 }
+
+// Quién (Super Admin) tocó qué desde el panel de Super Admin, y cuándo.
+// Datos del actor y del hotel guardados como texto (no relación) para que el
+// registro sobreviva aunque después se borre ese usuario o ese hotel.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actorName  String
+  accion     String
+  hotelId    String?
+  hotelName  String?
+  detalle    String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([hotelId])
+}
