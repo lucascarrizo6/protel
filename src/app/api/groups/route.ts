@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     return tx.group.findUniqueOrThrow({
       where: { id: createdGroup.id },
       include: {
-        members: { include: { room: true, reservation: true } },
+        members: { include: { reservation: { select: { status: true } } } },
       },
     });
   });

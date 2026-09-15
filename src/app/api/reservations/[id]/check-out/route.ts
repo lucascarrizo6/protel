@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseExtras, sumExtras } from "@/lib/reservation-extras";
+import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
 
 export async function PATCH(
   request: NextRequest,
@@ -66,7 +67,7 @@ export async function PATCH(
     const updated = await tx.reservation.update({
       where: { id: params.id },
       data: { status: "COMPLETADA" },
-      include: { room: true, groupMember: true },
+      include: RESERVATION_ROOM_GROUPMEMBER_INCLUDE,
     });
 
     await tx.room.update({

@@ -2,7 +2,10 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { CheckCircle2, Printer, Search, TriangleAlert } from "lucide-react";
-import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/client";
+import type {
+  ActiveReservationSlim,
+  HousekeepingRoom,
+} from "@/lib/housekeeping-room";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +17,11 @@ import { formatRoomStatus, roomStatusBadgeClassName } from "@/lib/room-status";
 import { parseExtras } from "@/lib/reservation-extras";
 import { useRouter } from "next/navigation";
 
-type RoomWithDaily = Room & {
-  housekeepingTask: HousekeepingTask | null;
-  activeReservation: Reservation | null;
-};
+type RoomWithDaily = HousekeepingRoom;
 
 type UserMinimal = { id: string; name: string };
 
-function hasExtraTowels(reservation: Reservation | null): boolean {
+function hasExtraTowels(reservation: ActiveReservationSlim | null): boolean {
   if (!reservation) return false;
   return parseExtras(reservation.extras).some((extra) =>
     extra.nombre.toLowerCase().includes("toalla")
@@ -88,7 +88,7 @@ export function DailyCleaning({
       // Sincronización instantánea en pantalla
       setRooms((prev) => prev.map((room) => 
         selectedIds.has(room.id) 
-          ? { ...room, housekeepingTask: { ...room.housekeepingTask, assignedToId: selectedMucama } as HousekeepingTask }
+          ? { ...room, housekeepingTask: { ...room.housekeepingTask, assignedToId: selectedMucama } as HousekeepingRoom["housekeepingTask"] }
           : room
       ));
       

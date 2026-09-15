@@ -21,7 +21,7 @@ export default async function GruposPage() {
         prisma.group.findMany({
           where: { hotelId },
           include: {
-            members: { include: { room: true, reservation: true } },
+            members: { include: { reservation: { select: { status: true } } } },
           },
           orderBy: { creadoEn: "desc" },
         }),

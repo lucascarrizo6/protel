@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Invoice, Reservation, Room } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,8 +48,34 @@ import {
 } from "@/lib/invoice-type";
 import { formatPaymentMethod } from "@/lib/payment-method";
 
-type ReservationWithRoom = Reservation & { room: Room };
-type InvoiceWithReservation = Invoice & { reservation: ReservationWithRoom };
+type ReservationWithRoom = Prisma.ReservationGetPayload<{
+  select: {
+    id: true;
+    guestName: true;
+    checkIn: true;
+    checkOut: true;
+    roomId: true;
+    room: { select: { number: true } };
+  };
+}>;
+
+type InvoiceWithReservation = Prisma.InvoiceGetPayload<{
+  select: {
+    id: true;
+    amount: true;
+    status: true;
+    type: true;
+    paymentMethod: true;
+    reservation: {
+      select: {
+        guestName: true;
+        checkIn: true;
+        checkOut: true;
+        room: { select: { number: true } };
+      };
+    };
+  };
+}>;
 
 export function InvoicesView({
   initialInvoices,
@@ -147,7 +173,7 @@ export function InvoicesView({
                       {reservations.map((reservation) => (
                         <SelectItem key={reservation.id} value={reservation.id}>
                           {reservation.guestName} · Habitación{" "}
-                          {reservation.room.number} ·{" "}
+                          {reservation.room?.number ?? "—"} ·{" "}
                           {formatDate(new Date(reservation.checkIn))} -{" "}
                           {formatDate(new Date(reservation.checkOut))}
                         </SelectItem>
@@ -225,7 +251,7 @@ export function InvoicesView({
                   <TableCell className="font-medium">
                     {invoice.reservation.guestName}
                   </TableCell>
-                  <TableCell>{invoice.reservation.room.number}</TableCell>
+                  <TableCell>{invoice.reservation.room?.number ?? "—"}</TableCell>
                   <TableCell>
                     {formatDate(new Date(invoice.reservation.checkIn))}
                   </TableCell>

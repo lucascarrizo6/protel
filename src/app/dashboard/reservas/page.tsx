@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { GuestProfileDTO } from "@/lib/guest-profile";
+import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
 import { ReservationsView } from "./reservations-view";
 
 const GUEST_PROFILE_SELECT = {
@@ -21,12 +22,19 @@ export default async function ReservationsPage() {
     ? await Promise.all([
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId },
-          include: { room: true, groupMember: true },
+          include: RESERVATION_ROOM_GROUPMEMBER_INCLUDE,
           orderBy: { checkIn: "desc" },
           take: 50,
         }),
         prisma.room.findMany({
           where: { hotelId: session.user.hotelId },
+          select: {
+            id: true,
+            number: true,
+            type: true,
+            status: true,
+            pricePerNight: true,
+          },
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
         prisma.guestProfile.findMany({

@@ -3,12 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  Group,
-  GroupMember,
-  Reservation,
-  Room,
-} from "@/generated/prisma/client";
+import type { Prisma, Room } from "@/generated/prisma/client";
 import type { BedArrangement, DocumentType } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,12 +41,13 @@ import {
 } from "@/lib/bed-arrangement";
 import { DOCUMENT_TYPES, formatDocumentType } from "@/lib/document-type";
 
-type GroupWithMembers = Group & {
-  members: (GroupMember & {
-    room: Room | null;
-    reservation: Reservation | null;
-  })[];
-};
+type GroupWithMembers = Prisma.GroupGetPayload<{
+  include: {
+    members: {
+      include: { reservation: { select: { status: true } } };
+    };
+  };
+}>;
 
 type ReservationSlim = { roomId: string; checkIn: Date; checkOut: Date };
 

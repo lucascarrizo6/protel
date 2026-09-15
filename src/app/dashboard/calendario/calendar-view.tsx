@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Reservation, Room } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
+import type { CalendarReservation } from "@/lib/calendar-reservation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,8 @@ import {
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
-type ReservationWithRoom = Reservation & { room: Room };
+type ReservationWithRoom = CalendarReservation;
+type RoomSlim = Prisma.RoomGetPayload<{ select: { id: true; number: true } }>;
 
 type DayBucket = {
   checkIns: ReservationWithRoom[];
@@ -108,7 +110,7 @@ export function CalendarView({
   initialReservations,
   initialMonth,
 }: {
-  rooms: Room[];
+  rooms: RoomSlim[];
   initialReservations: ReservationWithRoom[];
   initialMonth: string;
 }) {
@@ -227,7 +229,7 @@ export function CalendarView({
         ...selectedBucket.checkIns,
         ...selectedBucket.checkOuts,
         ...selectedBucket.staying,
-      ].sort((a, b) => a.room.number.localeCompare(b.room.number))
+      ].sort((a, b) => (a.room?.number ?? "").localeCompare(b.room?.number ?? ""))
     : [];
 
   const monthLabel = MONTH_LABEL_FORMATTER.format(monthDate);
@@ -463,8 +465,8 @@ export function CalendarView({
                         {reservation.guestName}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Hab. {reservation.room.number} ·{" "}
-                        {reservation.room.type}
+                        Hab. {reservation.room?.number ?? "—"} ·{" "}
+                        {reservation.room?.type ?? "—"}
                       </span>
                     </div>
                     <Badge className={TYPE_BADGE_CLASSES[type]}>{type}</Badge>

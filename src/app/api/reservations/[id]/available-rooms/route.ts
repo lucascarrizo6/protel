@@ -43,6 +43,7 @@ export async function GET(
       status: { in: ["AVAILABLE", "CLEANING"] },
       id: { notIn: busyRoomIds },
     },
+    select: { id: true, number: true, type: true, status: true },
     orderBy: { number: "asc" },
   });
 

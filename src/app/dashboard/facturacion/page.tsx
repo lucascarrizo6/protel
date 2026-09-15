@@ -11,14 +11,39 @@ export default async function FacturacionPage() {
     ? await Promise.all([
         prisma.invoice.findMany({
           where: { hotelId: session.user.hotelId },
-          include: { reservation: { include: { room: true } } },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            type: true,
+            paymentMethod: true,
+            reservation: {
+              select: {
+                guestName: true,
+                checkIn: true,
+                checkOut: true,
+                room: { select: { number: true } },
+              },
+            },
+          },
           orderBy: { createdAt: "desc" },
           take: 50,
         }),
         prisma.reservation.findMany({
-          where: { hotelId: session.user.hotelId },
-          include: { room: true },
-          orderBy: { checkIn: "asc" },
+          where: {
+            hotelId: session.user.hotelId,
+            status: { not: "CANCELADA" },
+          },
+          select: {
+            id: true,
+            guestName: true,
+            checkIn: true,
+            checkOut: true,
+            roomId: true,
+            room: { select: { number: true } },
+          },
+          orderBy: { checkIn: "desc" },
+          take: 150,
         }),
       ])
     : [[], []];

@@ -4,12 +4,9 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Star, X } from "lucide-react";
-import type {
-  GroupMember,
-  Reservation,
-  Room,
-} from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import type { DocumentType, PaymentMethod } from "@/generated/prisma/enums";
+import type { ReservationWithRoomAndGroupMember } from "@/lib/reservation-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,10 +62,21 @@ import {
 } from "@/lib/guest-profile";
 import { GuestPreferencesNotice } from "@/components/dashboard/guest-preferences-notice";
 
-type ReservationWithRoom = Reservation & {
-  room: Room | null;
-  groupMember: GroupMember | null;
-};
+type ReservationWithRoom = ReservationWithRoomAndGroupMember;
+
+type RoomOption = Prisma.RoomGetPayload<{
+  select: {
+    id: true;
+    number: true;
+    type: true;
+    status: true;
+    pricePerNight: true;
+  };
+}>;
+
+type SafeRoomOption = Prisma.RoomGetPayload<{
+  select: { id: true; number: true; type: true; status: true };
+}>;
 
 function isCheckInAllowed(reservation: ReservationWithRoom): boolean {
   if (reservation.status !== "PENDIENTE") return false;
@@ -83,7 +91,7 @@ export function ReservationsView({
   guestProfiles,
 }: {
   initialReservations: ReservationWithRoom[];
-  rooms: Room[];
+  rooms: RoomOption[];
   guestProfiles: GuestProfileDTO[];
 }) {
   const router = useRouter();
@@ -138,7 +146,7 @@ export function ReservationsView({
   const [isRedirectingToMp, setIsRedirectingToMp] = useState(false);
   
   // Nuevos estados para disponibilidad segura desde el backend
-  const [safeRooms, setSafeRooms] = useState<Room[]>([]);
+  const [safeRooms, setSafeRooms] = useState<SafeRoomOption[]>([]);
   const [isLoadingSafeRooms, setIsLoadingSafeRooms] = useState(false);
 
   const [checkoutReservation, setCheckoutReservation] = useState<ReservationWithRoom | null>(null);

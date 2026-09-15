@@ -45,7 +45,21 @@ export async function POST(request: NextRequest) {
       reservationId,
       hotelId: session.user.hotelId,
     },
-    include: { reservation: { include: { room: true } } },
+    select: {
+      id: true,
+      amount: true,
+      status: true,
+      type: true,
+      paymentMethod: true,
+      reservation: {
+        select: {
+          guestName: true,
+          checkIn: true,
+          checkOut: true,
+          room: { select: { number: true } },
+        },
+      },
+    },
   });
 
   return NextResponse.json(invoice);

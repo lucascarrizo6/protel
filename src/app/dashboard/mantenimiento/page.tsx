@@ -6,6 +6,22 @@ import { canManageMaintenance } from "@/lib/maintenance";
 import { MaintenanceView, type MaintenanceIssueDTO } from "./maintenance-view";
 import { MobileMaintenanceView } from "./mobile-maintenance-view";
 import { AutoRefresh } from "@/components/auto-refresh";
+import type { Prisma } from "@/generated/prisma/client";
+
+const ISSUE_SELECT = {
+  id: true,
+  titulo: true,
+  detalle: true,
+  severity: true,
+  status: true,
+  reportadoPor: true,
+  resueltoPor: true,
+  createdAt: true,
+  resolvedAt: true,
+  room: { select: { number: true, floor: true } },
+} as const;
+
+type IssueRow = Prisma.MaintenanceIssueGetPayload<{ select: typeof ISSUE_SELECT }>;
 
 export default async function MantenimientoPage() {
   const session = await getServerSession(authOptions);
@@ -22,20 +38,22 @@ export default async function MantenimientoPage() {
     // 1. TAREAS ABIERTAS: Ordenadas por gravedad -> N° de Habitación -> Fecha de creación
     prisma.maintenanceIssue.findMany({
       where: { hotelId, status: { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] } },
-      include: { room: true },
+      select: ISSUE_SELECT,
       orderBy: [
-        { severity: "asc" }, 
-        { room: { number: "asc" } }, 
+        { severity: "asc" },
+        { room: { number: "asc" } },
         { createdAt: "asc" }
       ],
     }),
-    // 2. TAREAS RESUELTAS
-    prisma.maintenanceIssue.findMany({
-      where: { hotelId, status: "RESUELTO" },
-      include: { room: true },
-      orderBy: [{ resolvedAt: "desc" }],
-      take: 40,
-    }),
+    // 2. TAREAS RESUELTAS (el técnico de mantenimiento nunca las ve: nos ahorramos la query)
+    isMaintenanceUser
+      ? Promise.resolve<IssueRow[]>([])
+      : prisma.maintenanceIssue.findMany({
+          where: { hotelId, status: "RESUELTO" },
+          select: ISSUE_SELECT,
+          orderBy: [{ resolvedAt: "desc" }],
+          take: 40,
+        }),
     // 3. HABITACIONES DISPONIBLES
     prisma.room.findMany({
       where: { hotelId },
@@ -44,7 +62,7 @@ export default async function MantenimientoPage() {
     }),
   ]);
 
-  const serialize = (issue: (typeof openRaw)[number]): MaintenanceIssueDTO => ({
+  const serialize = (issue: IssueRow): MaintenanceIssueDTO => ({
     id: issue.id,
     titulo: issue.titulo,
     detalle: issue.detalle,

@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
 import { blockingReservationFilter } from "@/lib/reservation-overlap";
+import { RESERVATION_CALENDAR_SELECT } from "@/lib/calendar-reservation";
+import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 export async function GET(request: NextRequest) {
@@ -35,11 +37,15 @@ export async function GET(request: NextRequest) {
       checkIn: { lt: monthEnd },
       checkOut: { gt: monthStart },
     },
-    include: { room: true },
+    select: RESERVATION_CALENDAR_SELECT,
     orderBy: { checkIn: "asc" },
   });
 
-  return NextResponse.json(reservations);
+  const validReservations = reservations.filter(
+    (res) => res.roomId !== null && res.room !== null
+  );
+
+  return NextResponse.json(validReservations);
 }
 
 export async function POST(request: NextRequest) {
@@ -139,7 +145,7 @@ export async function POST(request: NextRequest) {
       checkOut,
       hotelId: session.user.hotelId,
     },
-    include: { room: true, groupMember: true },
+    include: RESERVATION_ROOM_GROUPMEMBER_INCLUDE,
   });
 
   return NextResponse.json(reservation);
