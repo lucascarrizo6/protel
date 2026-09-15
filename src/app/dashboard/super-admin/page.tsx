@@ -18,6 +18,7 @@ export default async function SuperAdminPage() {
       modules: true,
     },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
   return (

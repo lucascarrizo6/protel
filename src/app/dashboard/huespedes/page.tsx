@@ -35,21 +35,28 @@ export default async function HuespedesPage() {
             LEFT JOIN "Invoice" i ON i."reservationId" = r."id"
             WHERE r."hotelId" = ${hotelId}
             GROUP BY r."dni", r."documentType"
+          ),
+          guests AS (
+            SELECT DISTINCT ON (gs."dni", gs."documentType")
+              gs."dni" AS "dni",
+              gs."documentType" AS "documentType",
+              gs."totalStays" AS "totalStays",
+              gs."lastVisit" AS "lastVisit",
+              gs."totalSpent" AS "totalSpent",
+              r."guestName" AS "name"
+            FROM guest_stats gs
+            JOIN "Reservation" r
+              ON r."dni" = gs."dni"
+              AND r."documentType" = gs."documentType"
+              AND r."checkOut" = gs."lastVisit"
+              AND r."hotelId" = ${hotelId}
+            ORDER BY gs."dni", gs."documentType", r."checkOut" DESC, r."id" DESC
           )
-          SELECT DISTINCT ON (gs."dni", gs."documentType")
-            gs."dni" AS "dni",
-            gs."documentType" AS "documentType",
-            gs."totalStays" AS "totalStays",
-            gs."lastVisit" AS "lastVisit",
-            gs."totalSpent" AS "totalSpent",
-            r."guestName" AS "name"
-          FROM guest_stats gs
-          JOIN "Reservation" r
-            ON r."dni" = gs."dni"
-            AND r."documentType" = gs."documentType"
-            AND r."checkOut" = gs."lastVisit"
-            AND r."hotelId" = ${hotelId}
-          ORDER BY gs."dni", gs."documentType", r."checkOut" DESC, r."id" DESC
+          -- Top 100 por frecuencia de estadías (y gasto como desempate), no
+          -- toda la historia de huéspedes del hotel.
+          SELECT * FROM guests
+          ORDER BY "totalStays" DESC, "totalSpent" DESC
+          LIMIT 100
         `,
         prisma.guestProfile.findMany({
           where: { hotelId },
