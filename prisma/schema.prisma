@@ -176,6 +176,7 @@ model HousekeepingTask {
   assignedTo   User?   @relation(fields: [assignedToId], references: [id])
 
   @@index([hotelId])
+  @@index([hotelId, status])
 }
 
 model Reservation {
@@ -195,16 +196,16 @@ model Reservation {
   hotelId String
   hotel   Hotel  @relation(fields: [hotelId], references: [id])
 
-  roomId String?  // <-- Ahora es opcional
-  room   Room?    @relation(fields: [roomId], references: [id]) // <-- Ahora es opcional
+  roomId String? // <-- Ahora es opcional
+  room   Room?   @relation(fields: [roomId], references: [id]) // <-- Ahora es opcional
 
   invoices    Invoice[]
   groupMember GroupMember?
 
   @@index([hotelId])
-  @@index([roomId])
   @@index([hotelId, checkIn])
-  @@index([hotelId, status])
+  @@index([hotelId, status, checkOut])
+  @@index([roomId, checkIn, checkOut])
 }
 
 model Invoice {
@@ -224,6 +225,7 @@ model Invoice {
   @@index([hotelId])
   @@index([reservationId])
   @@index([hotelId, createdAt])
+  @@index([hotelId, status])
 }
 
 model Group {
@@ -301,16 +303,16 @@ model MaintenanceIssue {
 
 model MaintenanceHistory {
   id         String   @id @default(cuid())
-  action     String   
-  notes      String?  
-  receiptUrl String?  
+  action     String
+  notes      String?
+  receiptUrl String?
   createdAt  DateTime @default(now())
 
   issueId String
   issue   MaintenanceIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([issueId])
   @@index([userId])

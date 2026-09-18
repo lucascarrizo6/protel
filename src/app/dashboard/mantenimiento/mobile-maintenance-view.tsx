@@ -2,15 +2,26 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { CheckCircle2, AlertTriangle, Wrench, ArrowRightLeft } from "lucide-react";
-import type { MaintenanceIssue, Room } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-type IssueWithRoom = MaintenanceIssue & {
-  room: Room;
-};
+type IssueWithRoom = Prisma.MaintenanceIssueGetPayload<{
+  select: {
+    id: true;
+    titulo: true;
+    detalle: true;
+    severity: true;
+    status: true;
+    reportadoPor: true;
+    resueltoPor: true;
+    createdAt: true;
+    resolvedAt: true;
+    room: { select: { number: true; floor: true } };
+  };
+}>;
 
 export function MobileMaintenanceView({
   initialIssues,

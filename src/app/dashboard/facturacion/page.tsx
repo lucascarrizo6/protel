@@ -7,18 +7,51 @@ import type { ComponentProps } from "react";
 export default async function FacturacionPage() {
   const session = await getServerSession(authOptions);
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
   const [invoices, reservations] = session?.user.hotelId
     ? await Promise.all([
         prisma.invoice.findMany({
           where: { hotelId: session.user.hotelId },
-          include: { reservation: { include: { room: true } } },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            type: true,
+            paymentMethod: true,
+            reservation: {
+              select: {
+                guestName: true,
+                checkIn: true,
+                checkOut: true,
+                room: { select: { number: true } },
+              },
+            },
+          },
           orderBy: { createdAt: "desc" },
           take: 50,
         }),
+        // Solo reservas facturables ahora: en curso, o recién completadas
+        // (checkout en los últimos 7 días). Evita un dropdown con años de
+        // historial irrelevante.
         prisma.reservation.findMany({
-          where: { hotelId: session.user.hotelId },
-          include: { room: true },
-          orderBy: { checkIn: "asc" },
+          where: {
+            hotelId: session.user.hotelId,
+            OR: [
+              { status: "CONFIRMADA" },
+              { status: "COMPLETADA", checkOut: { gte: sevenDaysAgo } },
+            ],
+          },
+          select: {
+            id: true,
+            guestName: true,
+            checkIn: true,
+            checkOut: true,
+            roomId: true,
+            room: { select: { number: true } },
+          },
+          orderBy: { checkIn: "desc" },
+          take: 100,
         }),
       ])
     : [[], []];

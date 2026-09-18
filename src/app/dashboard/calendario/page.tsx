@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { RESERVATION_CALENDAR_SELECT } from "@/lib/calendar-reservation";
 import { CalendarView } from "./calendar-view";
 import type { ComponentProps } from "react";
 
@@ -19,6 +20,7 @@ export default async function CalendarioPage() {
     ? await Promise.all([
         prisma.room.findMany({
           where: { hotelId },
+          select: { id: true, number: true },
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
         prisma.reservation.findMany({
@@ -28,7 +30,7 @@ export default async function CalendarioPage() {
             checkIn: { lt: monthEnd },
             checkOut: { gt: monthStart },
           },
-          include: { room: true },
+          select: RESERVATION_CALENDAR_SELECT,
           orderBy: { checkIn: "asc" },
         }),
       ])

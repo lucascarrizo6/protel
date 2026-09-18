@@ -96,6 +96,10 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
   endOfToday.setHours(23, 59, 59, 999);
   const startOfTomorrow = new Date(startOfToday.getTime() + DAY_MS);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Tolerancia de 1 día: cubre atrasos normales (llegada de ayer que no hizo
+  // check-in todavía) sin dejar que reservas colgadas de meses acumulen en
+  // los widgets de "hoy".
+  const startOfYesterday = new Date(startOfToday.getTime() - DAY_MS);
 
   const [
     roomsCount,
@@ -119,17 +123,32 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
       _sum: { amount: true },
     }),
     prisma.reservation.findMany({
-      where: { hotelId, status: "PENDIENTE", checkIn: { lte: endOfToday } },
+      where: {
+        hotelId,
+        status: "PENDIENTE",
+        checkIn: { gte: startOfYesterday, lte: endOfToday },
+      },
       include: { room: true, groupMember: true },
       orderBy: { checkIn: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { hotelId, status: "CONFIRMADA", checkOut: { lte: endOfToday } },
+      where: {
+        hotelId,
+        status: "CONFIRMADA",
+        checkOut: { gte: startOfYesterday, lte: endOfToday },
+      },
       include: { room: true },
       orderBy: { checkOut: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { hotelId, status: "CONFIRMADA" },
+      where: {
+        hotelId,
+        status: "CONFIRMADA",
+        // Un huésped "en casa" siempre tiene checkOut hoy o a futuro; si quedó
+        // en el pasado con status CONFIRMADA es una reserva que nunca hizo
+        // check-out (bug de negocio), no un huésped alojado actualmente.
+        checkOut: { gte: startOfYesterday },
+      },
       include: { room: true },
       orderBy: { checkOut: "asc" },
     }),

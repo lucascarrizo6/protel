@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
-import type { HousekeepingTask, Reservation, Room } from "@/generated/prisma/client";
+import type { HousekeepingRoom } from "@/lib/housekeeping-room";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +11,7 @@ import { formatRoomStatus, roomStatusBadgeClassName } from "@/lib/room-status";
 import { parseExtras } from "@/lib/reservation-extras";
 import { ReportIssueDialog } from "@/components/dashboard/report-issue-dialog";
 
-type RoomWithDaily = Room & {
-  housekeepingTask: HousekeepingTask | null;
-  activeReservation: Reservation | null;
-};
+type RoomWithDaily = HousekeepingRoom;
 
 export function MobileCleaningView({
   initialRooms,

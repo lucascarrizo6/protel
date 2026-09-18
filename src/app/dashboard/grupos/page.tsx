@@ -8,6 +8,8 @@ export default async function GruposPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
 
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
   const [rooms, reservations, groups] = hotelId
     ? await Promise.all([
         prisma.room.findMany({
@@ -18,10 +20,12 @@ export default async function GruposPage() {
           where: { hotelId, status: { in: ["PENDIENTE", "CONFIRMADA"] } },
           select: { roomId: true, checkIn: true, checkOut: true },
         }),
+        // Grupos vigentes: los que todavía no salieron o salieron hace menos
+        // de 30 días. Los de hace años no aportan a la vista principal.
         prisma.group.findMany({
-          where: { hotelId },
+          where: { hotelId, fechaSalida: { gte: thirtyDaysAgo } },
           include: {
-            members: { include: { room: true, reservation: true } },
+            members: { include: { reservation: { select: { status: true } } } },
           },
           orderBy: { creadoEn: "desc" },
         }),

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,8 +76,19 @@ export function LoginForm() {
         </p>
       ) : null}
 
-      <Button type="submit" className="mt-1 h-10 w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Iniciando sesión…" : "Iniciar sesión"}
+      <Button
+        type="submit"
+        className="mt-1 h-10 w-full disabled:pointer-events-auto disabled:cursor-not-allowed"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Iniciando sesión…
+          </>
+        ) : (
+          "Iniciar sesión"
+        )}
       </Button>
     </form>
   );

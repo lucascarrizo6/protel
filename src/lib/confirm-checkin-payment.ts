@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { nightsBetween } from "@/lib/nights-between";
+import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
 export async function confirmCheckInPayment(
@@ -9,7 +10,7 @@ export async function confirmCheckInPayment(
 ) {
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    include: { groupMember: true },
+    include: { groupMember: { select: { esFree: true } } },
   });
 
   if (!reservation || reservation.status !== "PENDIENTE") {
@@ -70,9 +71,9 @@ export async function confirmCheckInPayment(
       where: { id: reservationId },
       data: { 
         status: "CONFIRMADA",
-        roomId: roomId 
+        roomId: roomId
       },
-      include: { room: true, groupMember: true },
+      include: RESERVATION_ROOM_GROUPMEMBER_INCLUDE,
     });
 
     await tx.room.update({

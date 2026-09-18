@@ -42,7 +42,7 @@ export async function PATCH(
   const updated = await prisma.reservation.update({
     where: { id: params.id },
     data: { extras },
-    include: { room: true },
+    include: { room: { select: { number: true } } },
   });
 
   return NextResponse.json(updated);

@@ -6,6 +6,10 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { DailyCleaning } from "./daily-cleaning";
 import { MobileCleaningView } from "./mobile-cleaning-view";
 import { AutoRefresh } from "@/components/auto-refresh";
+import {
+  ACTIVE_RESERVATION_SELECT,
+  HOUSEKEEPING_ROOM_SELECT,
+} from "@/lib/housekeeping-room";
 
 export default async function MucamaPage() {
   const session = await getServerSession(authOptions);
@@ -17,11 +21,12 @@ export default async function MucamaPage() {
     ? await Promise.all([
         prisma.room.findMany({
           where: { hotelId: session.user.hotelId },
-          include: { housekeepingTask: true },
+          select: HOUSEKEEPING_ROOM_SELECT,
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
         prisma.reservation.findMany({
           where: { hotelId: session.user.hotelId, status: "CONFIRMADA" },
+          select: ACTIVE_RESERVATION_SELECT,
         }),
         prisma.user.findMany({
           where: { hotelId: session.user.hotelId, role: "HOUSEKEEPING" },
