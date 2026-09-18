@@ -33,30 +33,44 @@ export async function PATCH(
     return NextResponse.json({ error: "Habitación no encontrada." }, { status: 404 });
   }
 
+  // Máquina de estados: a Limpieza solo se puede llegar manualmente desde
+  // Disponible u Ocupada. Desde Mantenimiento o Bloqueada hay que pasar
+  // primero por esos flujos propios (no por este cambio manual genérico).
+  if (status === "CLEANING" && room.status !== "AVAILABLE" && room.status !== "OCCUPIED") {
+    return NextResponse.json(
+      { error: "Solo se puede pasar a Limpieza desde Disponible u Ocupada." },
+      { status: 409 }
+    );
+  }
+
   const trimmedNotes = notes.trim();
 
-  const updatedRoom = await prisma.room.update({
-    where: { id: params.id },
-    data: {
-      status,
-      notes: trimmedNotes.length === 0 ? null : trimmedNotes,
-    },
-  });
-
-// 👇 LÓGICA AUTOMÁTICA CORREGIDA 👇
-  if (status === "CLEANING") {
-    // Actualizamos directo por roomId, sin usar fechas
-    await prisma.housekeepingTask.updateMany({
-      where: { 
-        roomId: params.id 
+  const updatedRoom = await prisma.$transaction(async (tx) => {
+    const updated = await tx.room.update({
+      where: { id: params.id },
+      data: {
+        status,
+        notes: trimmedNotes.length === 0 ? null : trimmedNotes,
       },
-      data: { 
-        limpiadaHoy: false, 
-        status: "PENDIENTE" 
-      }
     });
-  }
-  // 👆 FIN DE LA LÓGICA 👆
+
+    // Re-limpieza manual: si la mandan de vuelta a Limpieza, su tarea de
+    // hoy vuelve a "no limpia" — upsert porque puede no existir todavía.
+    if (status === "CLEANING") {
+      await tx.housekeepingTask.upsert({
+        where: { roomId: params.id },
+        update: { limpiadaHoy: false, status: "PENDIENTE" },
+        create: {
+          roomId: params.id,
+          hotelId: session.user.hotelId!,
+          limpiadaHoy: false,
+          status: "PENDIENTE",
+        },
+      });
+    }
+
+    return updated;
+  });
 
   return NextResponse.json(updatedRoom);
 }

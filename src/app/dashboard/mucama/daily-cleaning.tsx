@@ -28,6 +28,19 @@ function hasExtraTowels(reservation: ActiveReservationSlim | null): boolean {
   );
 }
 
+function isRoomSelectable(room: RoomWithDaily): boolean {
+  if (room.housekeepingTask?.limpiadaHoy === true) return false;
+  if (room.status === "MANTENIMIENTO" || room.status === "BLOCKED") return false;
+  return true;
+}
+
+function unselectableReason(room: RoomWithDaily): string | undefined {
+  if (room.housekeepingTask?.limpiadaHoy === true) return "Habitación ya limpiada hoy";
+  if (room.status === "MANTENIMIENTO") return "Habitación en mantenimiento";
+  if (room.status === "BLOCKED") return "Habitación bloqueada";
+  return undefined;
+}
+
 export function DailyCleaning({
   initialRooms,
   mucamas,
@@ -56,12 +69,19 @@ export function DailyCleaning({
   }, [rooms, search]); 
 
   const allCleaned = rooms.length > 0 && rooms.every((room) => room.housekeepingTask?.limpiadaHoy === true);
-  const allSelected = filteredRooms.length > 0 && selectedIds.size === filteredRooms.length;
-  const indeterminate = selectedIds.size > 0 && selectedIds.size < filteredRooms.length;
+  // Solo las filas seleccionables cuentan para "todas seleccionadas": si no,
+  // el header quedaría en un estado indeterminado imposible de completar
+  // cuando hay habitaciones ya limpias o en mantenimiento en la lista.
+  const selectableRooms = useMemo(
+    () => filteredRooms.filter(isRoomSelectable),
+    [filteredRooms]
+  );
+  const allSelected = selectableRooms.length > 0 && selectedIds.size === selectableRooms.length;
+  const indeterminate = selectedIds.size > 0 && selectedIds.size < selectableRooms.length;
 
   function toggleAll() {
     if (allSelected) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredRooms.map((r) => r.id)));
+    else setSelectedIds(new Set(selectableRooms.map((r) => r.id)));
   }
 
   function toggleRow(roomId: string) {
@@ -110,7 +130,13 @@ export function DailyCleaning({
           <div className="h-4 w-px bg-border mx-2" />
           <Select value={selectedMucama} onValueChange={(value) => setSelectedMucama(value ?? "")}>
             <SelectTrigger className="w-[200px] bg-background">
-              <SelectValue placeholder="Asignar a..." />
+              <SelectValue placeholder="Asignar a...">
+                {(value: string | null) =>
+                  value
+                    ? (mucamas.find((m) => m.id === value)?.name ?? "Mucama")
+                    : "Asignar a..."
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {mucamas.map((mucama) => (
@@ -186,6 +212,8 @@ export function DailyCleaning({
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleRow(room.id)}
+                            disabled={!isRoomSelectable(room)}
+                            title={unselectableReason(room)}
                           />
                         </TableCell>
                       )}

@@ -65,7 +65,7 @@ const navItems = [
     moduleKey: "grupos",
   },
   {
-    title: "Mucama",
+    title: "Limpieza",
     href: "/dashboard/mucama",
     icon: Sparkles,
     moduleKey: "mucama",

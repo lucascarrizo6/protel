@@ -65,7 +65,7 @@ export default async function MucamaPage() {
       <AutoRefresh interval={5000} />
       <div className="flex flex-col gap-1 print:hidden">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {isMucama ? "Mis Tareas" : "Mucama"}
+          {isMucama ? "Mis Tareas" : "Limpieza"}
         </h1>
         <p className="text-sm text-muted-foreground">
           {isMucama 

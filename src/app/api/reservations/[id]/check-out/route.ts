@@ -83,6 +83,20 @@ export async function PATCH(
       data: { status: "CLEANING" },
     });
 
+    // Sincroniza la tarea diaria de limpieza con el nuevo estado de la
+    // habitación: recién hizo check-out, así que hoy todavía NO está
+    // limpia, sin importar lo que diga una tarea vieja de un día anterior.
+    await tx.housekeepingTask.upsert({
+      where: { roomId },
+      update: { limpiadaHoy: false, status: "PENDIENTE" },
+      create: {
+        roomId,
+        hotelId: session.user.hotelId!,
+        limpiadaHoy: false,
+        status: "PENDIENTE",
+      },
+    });
+
     return updated;
   }).catch((error) => {
     if (error instanceof Error && error.message === "CONFLICT") return null;

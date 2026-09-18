@@ -60,43 +60,45 @@ export async function PATCH(
       ? body.reason.trim() || null
       : (room.housekeepingTask?.reason ?? null);
 
-  const task = await prisma.housekeepingTask.upsert({
-    where: { roomId: params.id },
-    update: { status, limpiadaHoy, priority, notes, reason },
-    create: {
-      status,
-      limpiadaHoy,
-      priority,
-      notes,
-      reason,
-      roomId: params.id,
-      hotelId: session.user.hotelId,
-    },
-  });
+  const task = await prisma.$transaction(async (tx) => {
+    const upserted = await tx.housekeepingTask.upsert({
+      where: { roomId: params.id },
+      update: { status, limpiadaHoy, priority, notes, reason },
+      create: {
+        status,
+        limpiadaHoy,
+        priority,
+        notes,
+        reason,
+        roomId: params.id,
+        hotelId: session.user.hotelId!,
+      },
+    });
 
-  // 👇 LÓGICA AUTOMÁTICA DE PROTECCIÓN (De Mucama a Recepción) 👇
-  if (body?.limpiadaHoy === true) {
-    // Usamos "CLEANING" tal como lo pide Prisma
-    if (room.status === "CLEANING") {
-      
-      // Buscamos una reserva activa usando "CONFIRMADA"
-      const activeReservation = await prisma.reservation.findFirst({
+    // Máquina de estados: la limpieza solo puede "graduar" una habitación
+    // que estaba efectivamente en LIMPIEZA. Si ya estaba OCUPADA o en
+    // MANTENIMIENTO/BLOQUEADA, tildar la tarea de hoy no debe moverla de
+    // ahí (evita, por ejemplo, sacar una habitación de mantenimiento solo
+    // porque alguien marcó su tarea de limpieza como hecha).
+    if (body?.limpiadaHoy === true && room.status === "CLEANING") {
+      const activeReservation = await tx.reservation.findFirst({
         where: {
           roomId: params.id,
-          status: "CONFIRMADA"
-        }
+          hotelId: session.user.hotelId!,
+          status: "CONFIRMADA",
+        },
       });
 
-      // Si hay huésped -> OCCUPIED. Si no hay huésped -> AVAILABLE.
       const newStatus = activeReservation ? "OCCUPIED" : "AVAILABLE";
 
-      await prisma.room.update({
+      await tx.room.update({
         where: { id: params.id },
-        data: { status: newStatus }
+        data: { status: newStatus },
       });
     }
-  }
-  // 👆 FIN DE LA LÓGICA 👆
+
+    return upserted;
+  });
 
   return NextResponse.json(task);
 }
