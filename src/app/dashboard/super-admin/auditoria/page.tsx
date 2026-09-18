@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { formatAuditAction } from "@/lib/audit";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,

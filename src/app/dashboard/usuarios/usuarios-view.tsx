@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import type { UserRole } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import {
