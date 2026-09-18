@@ -28,7 +28,15 @@ export default async function MucamaPage() {
   const [rooms, activeReservations, mucamas] = session?.user.hotelId
     ? await Promise.all([
         prisma.room.findMany({
-          where: { hotelId: session.user.hotelId },
+          where: {
+            hotelId: session.user.hotelId,
+            // La mucama solo ve las habitaciones que el admin le asignó
+            // puntualmente a ella (daily-cleaning.tsx); el admin sigue
+            // viendo todas para poder repartirlas.
+            ...(isMucama
+              ? { housekeepingTask: { assignedToId: session.user.id } }
+              : {}),
+          },
           select: HOUSEKEEPING_ROOM_SELECT,
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
@@ -66,7 +74,9 @@ export default async function MucamaPage() {
         </p>
       </div>
 
-      {rooms.length === 0 ? (
+      {isMucama ? (
+        <MobileCleaningView initialRooms={roomsWithDaily} currentUserId={session?.user.id} />
+      ) : rooms.length === 0 ? (
         <Card className="print:hidden">
           <CardHeader>
             <CardTitle>Aún no hay habitaciones</CardTitle>
@@ -75,13 +85,11 @@ export default async function MucamaPage() {
             </CardDescription>
           </CardHeader>
         </Card>
-      ) : isMucama ? (
-        <MobileCleaningView initialRooms={roomsWithDaily} currentUserId={session?.user.id} />
       ) : (
-        <DailyCleaning 
-          initialRooms={roomsWithDaily} 
-          mucamas={mucamas} 
-          isSuperAdmin={isSuperAdmin} 
+        <DailyCleaning
+          initialRooms={roomsWithDaily}
+          mucamas={mucamas}
+          isSuperAdmin={isSuperAdmin}
         />
       )}
     </div>
