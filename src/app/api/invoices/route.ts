@@ -38,6 +38,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!reservation.roomId) {
+    return NextResponse.json(
+      {
+        error:
+          "Esta reserva todavía no tiene habitación asignada (falta el check-in).",
+      },
+      { status: 409 }
+    );
+  }
+
   const invoice = await prisma.invoice.create({
     data: {
       amount,

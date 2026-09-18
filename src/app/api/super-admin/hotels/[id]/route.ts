@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { serializeHotel } from "@/lib/super-admin";
 
 export async function PATCH(
@@ -38,7 +39,16 @@ export async function PATCH(
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    actorName: session.user.name ?? session.user.email ?? "Super Admin",
+    accion: body.activo ? "hotel.activado" : "hotel.desactivado",
+    hotelId: updated.id,
+    hotelName: updated.name,
   });
 
   return NextResponse.json(serializeHotel(updated));

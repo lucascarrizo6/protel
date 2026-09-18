@@ -25,10 +25,8 @@ type IssueWithRoom = Prisma.MaintenanceIssueGetPayload<{
 
 export function MobileMaintenanceView({
   initialIssues,
-  
 }: {
   initialIssues: IssueWithRoom[];
-  currentUserId?: string;
 }) {
   // Puente de reactividad con el servidor
   const [issues, setIssues] = useState(initialIssues);

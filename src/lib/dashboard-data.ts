@@ -221,7 +221,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
   const departures: DepartureRow[] = departuresRaw.map((reservation) => ({
     id: reservation.id,
     guestName: reservation.guestName,
-    roomNumber: reservation.room?.number ?? 'Sin asignar',
+    roomNumber: reservation.room?.number ?? "Sin asignar",
     checkOut: reservation.checkOut.toISOString(),
     overdue: reservation.checkOut < startOfToday,
     extrasTotal: sumExtras(parseExtras(reservation.extras)),
@@ -234,7 +234,7 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
   const inHouse: StayRow[] = inHouseRaw.map((reservation) => ({
     id: reservation.id,
     guestName: reservation.guestName,
-    roomNumber: reservation.room?.number ?? 'Sin asignar',
+    roomNumber: reservation.room?.number ?? "Sin asignar",
     checkIn: reservation.checkIn.toISOString(),
     checkOut: reservation.checkOut.toISOString(),
     vip:
@@ -247,7 +247,11 @@ export async function getDashboardData(hotelId: string): Promise<DashboardData> 
     (stay) => new Date(stay.checkOut) > endOfToday
   );
 
-  const occupied = new Set(tonightRooms.map((row) => row.roomId)).size;
+  // Ojo: una reserva PENDIENTE puede no tener habitación física asignada
+  // todavía (reserva "flotante" por categoría) — no cuenta como ocupada.
+  const occupied = new Set(
+    tonightRooms.map((row) => row.roomId).filter((id): id is string => id !== null)
+  ).size;
 
   let roomNights = 0;
   let roomRevenue = 0;

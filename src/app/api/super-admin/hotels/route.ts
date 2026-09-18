@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { slugify } from "@/lib/slugify";
 import { serializeHotel } from "@/lib/super-admin";
 
@@ -16,6 +17,7 @@ export async function GET() {
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -51,11 +53,20 @@ export async function POST(request: NextRequest) {
   }
 
   const hotel = await prisma.hotel.create({
-    data: { name, slug, modules: { create: {} } },
+    data: { name, slug, modules: { create: {} }, billing: { create: {} } },
     include: {
       _count: { select: { users: true } },
       modules: true,
+      billing: true,
     },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    actorName: session.user.name ?? session.user.email ?? "Super Admin",
+    accion: "hotel.creado",
+    hotelId: hotel.id,
+    hotelName: hotel.name,
   });
 
   return NextResponse.json(serializeHotel(hotel));

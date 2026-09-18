@@ -1,13 +1,19 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RESERVATION_CALENDAR_SELECT } from "@/lib/calendar-reservation";
+import { getScopedHome } from "@/lib/staff-scope";
 import { CalendarView } from "./calendar-view";
-import type { ComponentProps } from "react";
 
 export default async function CalendarioPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -29,6 +35,10 @@ export default async function CalendarioPage() {
             status: { not: "CANCELADA" },
             checkIn: { lt: monthEnd },
             checkOut: { gt: monthStart },
+            // El calendario agrupa por habitación física: una reserva
+            // "flotante" (por categoría, sin habitación asignada todavía)
+            // no tiene dónde graficarse hasta el check-in.
+            roomId: { not: null },
           },
           select: RESERVATION_CALENDAR_SELECT,
           orderBy: { checkIn: "asc" },
@@ -36,10 +46,12 @@ export default async function CalendarioPage() {
       ])
     : [[], []];
 
-  // Filtro seguro extrayendo el tipo exacto del componente sin usar "any"
-  const validReservations = reservations.filter(
-    (res) => res.roomId !== null && res.room !== null
-  ) as unknown as ComponentProps<typeof CalendarView>["initialReservations"];
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & {
+      room: NonNullable<(typeof reservation)["room"]>;
+      roomId: string;
+    } => reservation.room !== null && reservation.roomId !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,7 +64,7 @@ export default async function CalendarioPage() {
 
       <CalendarView
         rooms={rooms}
-        initialReservations={validReservations}
+        initialReservations={reservationsWithRoom}
         initialMonth={initialMonth}
       />
     </div>

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BED_ARRANGEMENTS } from "@/lib/bed-arrangement";
 import { DOCUMENT_TYPES } from "@/lib/document-type";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 import type { BedArrangement, DocumentType } from "@/generated/prisma/enums";
 
 type MemberInput = {
@@ -20,6 +21,9 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const hotelId = session.user.hotelId;
@@ -150,10 +154,13 @@ export async function POST(request: NextRequest) {
             guestName: member.nombre,
             dni: member.dni,
             documentType: member.documentType,
-            roomType,
             checkIn: fechaEntrada,
             checkOut: fechaSalida,
             roomId: member.roomId,
+            // En un grupo se elige la habitación física puntual, no una
+            // categoría — igual guardamos su tipo para que el registro
+            // sea consistente con el resto de las reservas.
+            roomType,
             hotelId,
           },
         });

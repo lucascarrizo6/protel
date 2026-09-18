@@ -6,6 +6,7 @@ import { DOCUMENT_TYPES } from "@/lib/document-type";
 import { blockingReservationFilter } from "@/lib/reservation-overlap";
 import { RESERVATION_CALENDAR_SELECT } from "@/lib/calendar-reservation";
 import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 import type { DocumentType } from "@/generated/prisma/enums";
 
 export async function GET(request: NextRequest) {
@@ -13,6 +14,9 @@ export async function GET(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const monthParam = request.nextUrl.searchParams.get("month");
@@ -36,6 +40,10 @@ export async function GET(request: NextRequest) {
       status: { not: "CANCELADA" },
       checkIn: { lt: monthEnd },
       checkOut: { gt: monthStart },
+      // El calendario (único consumidor de este endpoint) agrupa por
+      // habitación física: una reserva flotante sin asignar todavía no
+      // tiene dónde graficarse.
+      roomId: { not: null },
     },
     select: RESERVATION_CALENDAR_SELECT,
     orderBy: { checkIn: "asc" },
@@ -53,6 +61,9 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);

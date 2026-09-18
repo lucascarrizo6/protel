@@ -184,7 +184,10 @@ export async function POST(
       checkIn,
       checkOut,
       roomId,
-      roomType: room.type, // <-- Agregado para cumplir con el esquema
+      // El motor público reserva una habitación puntual, no una
+      // categoría — igual guardamos su tipo para mantener el dato
+      // consistente con las reservas cargadas desde el panel.
+      roomType: room.type,
       hotelId: hotel.id,
     },
   });

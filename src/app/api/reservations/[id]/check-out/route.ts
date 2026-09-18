@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseExtras, sumExtras } from "@/lib/reservation-extras";
 import { RESERVATION_ROOM_GROUPMEMBER_INCLUDE } from "@/lib/reservation-detail";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 
 export async function PATCH(
   request: NextRequest,
@@ -13,6 +14,9 @@ export async function PATCH(
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const reservation = await prisma.reservation.findUnique({
@@ -33,14 +37,18 @@ export async function PATCH(
     );
   }
 
-  // Validación de seguridad para la API y para que TypeScript confirme que no es null
+  // Invariante: una reserva CONFIRMADA siempre tiene habitación asignada
+  // (se setean juntas en confirmCheckInPayment). Si esto falla, hay datos
+  // corruptos y preferimos avisar en vez de intentar limpiar una habitación
+  // inexistente.
   if (!reservation.roomId) {
     return NextResponse.json(
-      { error: "Operación inválida: Reserva sin habitación asignada." },
-      { status: 400 }
+      { error: "La reserva no tiene habitación asignada." },
+      { status: 409 }
     );
   }
 
+  const roomId = reservation.roomId;
   const extrasTotal = sumExtras(parseExtras(reservation.extras));
 
   const updatedReservation = await prisma.$transaction(async (tx) => {
@@ -71,7 +79,7 @@ export async function PATCH(
     });
 
     await tx.room.update({
-      where: { id: reservation.roomId! }, // TypeScript ahora sabe que es 100% seguro
+      where: { id: roomId },
       data: { status: "CLEANING" },
     });
 

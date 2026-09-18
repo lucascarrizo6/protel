@@ -8,11 +8,16 @@ import {
   CalendarCheck,
   CalendarDays,
   FileCog,
+  History,
   Home,
+  IdCard,
+  PieChart,
   Receipt,
   ShieldCheck,
   Sparkles,
+  UserCog,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import type { UserRole } from "@/generated/prisma/enums";
@@ -84,6 +89,20 @@ const navItems = [
     moduleKey: null,
   },
   {
+    title: "Personal",
+    href: "/dashboard/empleados",
+    icon: IdCard,
+    moduleKey: "personal",
+    roles: ["HOTEL_ADMIN"],
+  },
+  {
+    title: "Usuarios",
+    href: "/dashboard/usuarios",
+    icon: UserCog,
+    moduleKey: null,
+    roles: ["HOTEL_ADMIN"],
+  },
+  {
     title: "Facturación AFIP",
     href: "/dashboard/configuracion",
     icon: FileCog,
@@ -94,6 +113,27 @@ const navItems = [
     title: "Super Admin",
     href: "/dashboard/super-admin",
     icon: ShieldCheck,
+    moduleKey: null,
+    roles: ["SUPER_ADMIN"],
+  },
+  {
+    title: "Finanzas",
+    href: "/dashboard/super-admin/finanzas",
+    icon: Wallet,
+    moduleKey: null,
+    roles: ["SUPER_ADMIN"],
+  },
+  {
+    title: "Métricas",
+    href: "/dashboard/super-admin/metricas",
+    icon: PieChart,
+    moduleKey: null,
+    roles: ["SUPER_ADMIN"],
+  },
+  {
+    title: "Auditoría",
+    href: "/dashboard/super-admin/auditoria",
+    icon: History,
     moduleKey: null,
     roles: ["SUPER_ADMIN"],
   },
@@ -111,19 +151,23 @@ export function AppSidebar({
   const isCollapsed = state === "collapsed";
 
 const visibleNavItems = navItems.filter((item) => {
-    // 1. Reglas estrictas para roles operativos: SOLO ven su módulo
+    // 1. Reglas estrictas para roles de área única: SOLO ven su pantalla
     if (role === "HOUSEKEEPING") {
       return item.moduleKey === "mucama";
     }
     if (role === "MAINTENANCE") {
       return item.moduleKey === "mantenimiento";
     }
+    if (role === "SUPER_ADMIN") {
+      // No administra la operación de ningún hotel puntual (no tiene
+      // hotelId): solo ve sus propias pantallas (Super Admin y Finanzas).
+      return item.href.startsWith("/dashboard/super-admin");
+    }
 
-    // 2. Reglas normales para Administradores, Recepcionistas y Super Admins
+    // 2. Reglas normales para Administradores y Recepcionistas
     if ("roles" in item && !(item.roles as readonly string[]).includes(role)) {
       return false;
     }
-    if (role === "SUPER_ADMIN") return true;
     if (item.moduleKey && hotelModules?.[item.moduleKey as HotelModuleKey] === false) {
       return false;
     }
@@ -157,7 +201,9 @@ const visibleNavItems = navItems.filter((item) => {
               {visibleNavItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  (item.href !== "/dashboard" &&
+                    item.href !== "/dashboard/super-admin" &&
+                    pathname.startsWith(item.href));
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton

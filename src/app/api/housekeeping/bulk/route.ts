@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 
 export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user.hotelId) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { roomIds, assignedToId } = body;
@@ -10,10 +22,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "IDs inválidos" }, { status: 400 });
     }
 
-    // Actualiza todas las tareas de las habitaciones seleccionadas
+    // Actualiza solo las tareas de habitaciones que son de ESTE hotel —
+    // sin este filtro, cualquier hotel podía reasignar tareas de otro.
     await prisma.housekeepingTask.updateMany({
       where: {
         roomId: { in: roomIds },
+        hotelId: session.user.hotelId,
       },
       data: {
         assignedToId: assignedToId,

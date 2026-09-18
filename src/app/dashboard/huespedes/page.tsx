@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { guestProfileKey, type GuestProfileDTO } from "@/lib/guest-profile";
 import type { DocumentType } from "@/generated/prisma/enums";
+import { getScopedHome } from "@/lib/staff-scope";
 import { GuestsView, type GuestRowDTO } from "./guests-view";
 
 type GuestRow = {
@@ -18,6 +20,11 @@ type GuestRow = {
 export default async function HuespedesPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   // Agrupado por DNI+tipo de documento en la propia query (CTE + DISTINCT ON)
   // en vez de traer todas las reservas con todas sus facturas y agregar en JS.

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canManageMaintenance } from "@/lib/maintenance";
+import type { Prisma } from "@/generated/prisma/client";
 
 const VALID_STATUSES = ["PENDIENTE", "EN_REVISION", "DERIVADO", "RESUELTO"];
 
@@ -39,7 +40,7 @@ export async function PATCH(
   }
 
   // Preparamos el objeto de actualización de Prisma
-const dataToUpdate: Record<string, unknown> = {};
+  const dataToUpdate: Prisma.MaintenanceIssueUpdateInput = {};
 
   if (status) {
     dataToUpdate.status = status;

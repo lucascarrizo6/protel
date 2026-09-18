@@ -1,11 +1,17 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import { InvoicesView } from "./invoices-view";
-import type { ComponentProps } from "react";
 
 export default async function FacturacionPage() {
   const session = await getServerSession(authOptions);
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -37,6 +43,10 @@ export default async function FacturacionPage() {
         prisma.reservation.findMany({
           where: {
             hotelId: session.user.hotelId,
+            // Solo reservas con habitación física ya asignada: no tiene
+            // sentido facturar una reserva "flotante" que todavía no
+            // pasó por el check-in.
+            roomId: { not: null },
             OR: [
               { status: "CONFIRMADA" },
               { status: "COMPLETADA", checkOut: { gte: sevenDaysAgo } },
@@ -56,12 +66,23 @@ export default async function FacturacionPage() {
       ])
     : [[], []];
 
-  // Magia de TypeScript: forzamos el tipo exacto sin usar "any"
-  const validReservations = reservations.filter(
-    (res) => res.roomId !== null && res.room !== null
-  ) as unknown as ComponentProps<typeof InvoicesView>["reservations"];
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & {
+      room: NonNullable<(typeof reservation)["room"]>;
+      roomId: string;
+    } => reservation.room !== null && reservation.roomId !== null
+  );
 
-  const validInvoices = invoices as unknown as ComponentProps<typeof InvoicesView>["initialInvoices"];
+  // Defensivo: en la práctica una factura siempre se crea sobre una reserva
+  // ya con habitación asignada, pero si alguna quedó huérfana no la mostramos
+  // rota en vez de romper la pantalla entera.
+  const invoicesWithRoom = invoices.filter(
+    (invoice): invoice is typeof invoice & {
+      reservation: typeof invoice.reservation & {
+        room: NonNullable<(typeof invoice.reservation)["room"]>;
+      };
+    } => invoice.reservation.room !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,9 +93,9 @@ export default async function FacturacionPage() {
         </p>
       </div>
 
-      <InvoicesView 
-        initialInvoices={validInvoices} 
-        reservations={validReservations} 
+      <InvoicesView
+        initialInvoices={invoicesWithRoom}
+        reservations={reservationsWithRoom}
       />
     </div>
   );

@@ -91,10 +91,7 @@ export default async function MantenimientoPage() {
       )}
 
       {isMaintenanceUser ? (
-        <MobileMaintenanceView
-          initialIssues={openRaw}
-          currentUserId={session.user.id}
-        />
+        <MobileMaintenanceView initialIssues={openRaw} />
       ) : (
         <MaintenanceView
           openIssues={openRaw.map(serialize)}

@@ -4,6 +4,7 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nightsBetween } from "@/lib/nights-between";
+import { isGeneralAccessRole } from "@/lib/staff-scope";
 
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user.hotelId) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+  if (!isGeneralAccessRole(session.user.role)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
@@ -43,17 +47,37 @@ export async function POST(request: NextRequest) {
   }
 
   // Obtenemos la habitación de la relación o del input enviado por el frontend
+  // (el check-in y el cobro pueden pasar en el mismo paso). Siempre scopeada
+  // por hotelId: nunca confiar en un roomId del cliente sin validar el tenant.
   let room = reservation.room;
   if (!room && (roomIdInput || reservation.roomId)) {
     room = await prisma.room.findUnique({
       where: { id: roomIdInput || reservation.roomId! },
     });
+    if (room && room.hotelId !== session.user.hotelId) {
+      return NextResponse.json(
+        { error: "Habitación no encontrada." },
+        { status: 404 }
+      );
+    }
   }
 
-  const pricePerNight = room?.pricePerNight ?? 0;
-  const roomNumber = room?.number ?? "A asignar";
+  if (!room) {
+    return NextResponse.json(
+      {
+        error:
+          "Esta reserva todavía no tiene habitación asignada. Completá el check-in antes de cobrar.",
+      },
+      { status: 409 }
+    );
+  }
 
-  // El monto se calcula de forma segura evitando nulos
+  const pricePerNight = room.pricePerNight;
+  const roomNumber = room.number;
+
+  // El monto se calcula siempre server-side (noches × precio de la
+  // habitación), nunca se confía en un valor mandado por el cliente.
+
   const monto = reservation.groupMember?.esFree
     ? 0
     : nightsBetween(reservation.checkIn, reservation.checkOut) * pricePerNight;

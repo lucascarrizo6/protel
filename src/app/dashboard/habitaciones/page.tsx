@@ -1,11 +1,18 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import { RoomsView } from "./rooms-view";
 import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function RoomsPage() {
   const session = await getServerSession(authOptions);
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const rooms = session?.user.hotelId
     ? await prisma.room.findMany({
@@ -13,7 +20,7 @@ export default async function RoomsPage() {
         orderBy: [{ floor: "asc" }, { number: "asc" }],
       })
     : [];
-  console.log("🖥️ SERVIDOR: Datos de BD", rooms.map(r => `${r.number}:${r.status}`));    
+
   return (
     <div className="flex flex-col gap-6">
       <AutoRefresh interval={5000} />

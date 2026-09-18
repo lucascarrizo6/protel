@@ -97,6 +97,14 @@ enum AfipAmbiente {
   PRODUCCION
 }
 
+// Lo que nos paga CADA HOTEL a nosotros por usar Hotar — no confundir con
+// AfipConfig, que es la facturación del hotel a SUS huéspedes.
+enum BillingStatus {
+  AL_DIA
+  PENDIENTE
+  VENCIDO
+}
+
 model Hotel {
   id        String   @id @default(cuid())
   name      String
@@ -113,8 +121,10 @@ model Hotel {
   groups            Group[]
   maintenanceIssues MaintenanceIssue[]
   guestProfiles     GuestProfile[]
+  employees         Employee[]
   afipConfig        AfipConfig?
   modules           HotelModules?
+  billing           HotelBilling?
 }
 
 model User {
@@ -275,6 +285,7 @@ model HotelModules {
   calendario    Boolean @default(true)
   reservas      Boolean @default(true)
   mantenimiento Boolean @default(true)
+  personal      Boolean @default(true)
 }
 
 model MaintenanceIssue {
@@ -321,6 +332,8 @@ model MaintenanceHistory {
 model AfipConfig {
   id                 String          @id @default(cuid())
   cuit               String
+  // Certificado (.crt) y clave privada (.key) cifrados con AES-256-GCM
+  // (ver src/lib/encryption.ts) antes de guardarse, nunca en texto plano.
   certificado        String
   clavePrivada       String
   puntoVenta         Int
@@ -352,6 +365,49 @@ model GuestProfile {
   @@index([hotelId])
 }
 
+model Employee {
+  id              String    @id @default(cuid())
+  nombre          String
+  puesto          String
+  dni             String?
+  cuitCuil        String?
+  fechaNacimiento DateTime?
+  fechaIngreso    DateTime?
+  telefono        String?
+  email           String?
+
+  contactoEmergenciaNombre   String?
+  contactoEmergenciaTelefono String?
+
+  notas  String?
+  activo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+
+  @@index([hotelId])
+  @@index([hotelId, activo])
+}
+
+model HotelBilling {
+  id                 String        @id @default(cuid())
+  plan               String?
+  monto              Float?
+  status             BillingStatus @default(PENDIENTE)
+  ultimoPago         DateTime?
+  proximoVencimiento DateTime?
+  notas              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotelId String @unique
+  hotel   Hotel  @relation(fields: [hotelId], references: [id])
+}
+
 model LoginAttempt {
   id       String   @id @default(cuid())
   email    String
@@ -360,4 +416,21 @@ model LoginAttempt {
   creadoEn DateTime @default(now())
 
   @@index([email, creadoEn])
+}
+
+// Quién (Super Admin) tocó qué desde el panel de Super Admin, y cuándo.
+// Datos del actor y del hotel guardados como texto (no relación) para que el
+// registro sobreviva aunque después se borre ese usuario o ese hotel.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actorName  String
+  accion     String
+  hotelId    String?
+  hotelName  String?
+  detalle    String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([hotelId])
 }

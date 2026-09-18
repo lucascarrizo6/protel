@@ -1,12 +1,18 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getScopedHome } from "@/lib/staff-scope";
 import { GroupsView } from "./groups-view";
-import type { ComponentProps } from "react";
 
 export default async function GruposPage() {
   const session = await getServerSession(authOptions);
   const hotelId = session?.user.hotelId;
+
+  const scopedHome = getScopedHome(session?.user.role);
+  if (scopedHome) {
+    redirect(scopedHome);
+  }
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -17,7 +23,13 @@ export default async function GruposPage() {
           orderBy: [{ floor: "asc" }, { number: "asc" }],
         }),
         prisma.reservation.findMany({
-          where: { hotelId, status: { in: ["PENDIENTE", "CONFIRMADA"] } },
+          where: {
+            hotelId,
+            status: { in: ["PENDIENTE", "CONFIRMADA"] },
+            // Una reserva flotante (sin habitación todavía) no ocupa
+            // ninguna habitación puntual, así que no cuenta acá.
+            roomId: { not: null },
+          },
           select: { roomId: true, checkIn: true, checkOut: true },
         }),
         // Grupos vigentes: los que todavía no salieron o salieron hace menos
@@ -32,11 +44,10 @@ export default async function GruposPage() {
       ])
     : [[], [], []];
 
-  const validReservations = reservations.filter(
-    (res) => res.roomId !== null
-  ) as unknown as ComponentProps<typeof GroupsView>["existingReservations"];
-
-  const validGroups = groups as unknown as ComponentProps<typeof GroupsView>["initialGroups"];
+  const reservationsWithRoom = reservations.filter(
+    (reservation): reservation is typeof reservation & { roomId: string } =>
+      reservation.roomId !== null
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,9 +60,9 @@ export default async function GruposPage() {
       </div>
 
       <GroupsView
-        initialGroups={validGroups}
+        initialGroups={groups}
         rooms={rooms}
-        existingReservations={validReservations}
+        existingReservations={reservationsWithRoom}
       />
     </div>
   );

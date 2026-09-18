@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { HOTEL_MODULE_KEYS, type HotelModuleKey } from "@/lib/super-admin";
+import { logAudit } from "@/lib/audit";
+import {
+  HOTEL_MODULE_KEYS,
+  HOTEL_MODULE_LABELS,
+  type HotelModuleKey,
+} from "@/lib/super-admin";
 
 export async function GET(
   request: NextRequest,
@@ -70,6 +75,15 @@ export async function PATCH(
     where: { hotelId: params.id },
     update: { [modulo]: valor },
     create: { hotelId: params.id, [modulo]: valor },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    actorName: session.user.name ?? session.user.email ?? "Super Admin",
+    accion: valor ? "modulo.activado" : "modulo.desactivado",
+    hotelId: hotel.id,
+    hotelName: hotel.name,
+    detalle: HOTEL_MODULE_LABELS[modulo],
   });
 
   return NextResponse.json(modules);

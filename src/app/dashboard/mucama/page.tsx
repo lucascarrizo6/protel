@@ -1,4 +1,4 @@
-
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,12 +10,20 @@ import {
   ACTIVE_RESERVATION_SELECT,
   HOUSEKEEPING_ROOM_SELECT,
 } from "@/lib/housekeeping-room";
+import { getScopedHome } from "@/lib/staff-scope";
 
 export default async function MucamaPage() {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
   const isMucama = role === "HOUSEKEEPING";
   const isSuperAdmin = role === "SUPER_ADMIN";
+
+  // Mucama es la única "área única" que sí vive en esta pantalla, así que
+  // solo redirigimos si el rol tiene un área única DISTINTA de esta.
+  const scopedHome = getScopedHome(role);
+  if (scopedHome && scopedHome !== "/dashboard/mucama") {
+    redirect(scopedHome);
+  }
 
   const [rooms, activeReservations, mucamas] = session?.user.hotelId
     ? await Promise.all([

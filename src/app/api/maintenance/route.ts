@@ -7,7 +7,8 @@ import {
   canManageMaintenance,
   severityBlocksRoom,
 } from "@/lib/maintenance";
-import type { MaintenanceSeverity } from "@/generated/prisma/enums";
+import type { MaintenanceSeverity, MaintenanceStatus } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -21,15 +22,15 @@ export async function GET(request: NextRequest) {
 
   const estado = request.nextUrl.searchParams.get("estado");
   // Adaptado a la nueva máquina de estados
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const statusFilter: any = estado === "resuelto" 
-    ? { equals: "RESUELTO" } 
-    : { in: ["PENDIENTE", "EN_REVISION", "DERIVADO"] };
+  const statusValues: MaintenanceStatus[] =
+    estado === "resuelto"
+      ? ["RESUELTO"]
+      : ["PENDIENTE", "EN_REVISION", "DERIVADO"];
 
   const issues = await prisma.maintenanceIssue.findMany({
-    where: { 
-      hotelId: session.user.hotelId, 
-      status: statusFilter 
+    where: {
+      hotelId: session.user.hotelId,
+      status: { in: statusValues },
     },
     include: { room: { select: { number: true, floor: true } } },
     orderBy: estado === "resuelto"
@@ -76,19 +77,19 @@ export async function POST(request: NextRequest) {
   }
 
   // Objeto base del ticket con la creación del historial inyectada
-  const issueData = {
+  const issueData: Prisma.MaintenanceIssueCreateInput = {
     titulo,
     detalle: detalleRaw.length === 0 ? null : detalleRaw,
     severity,
     status: "PENDIENTE",
     reportadoPor: session.user.id,
-    hotelId: session.user.hotelId,
-    roomId: room.id,
+    hotel: { connect: { id: session.user.hotelId } },
+    room: { connect: { id: room.id } },
     history: {
       create: {
         action: "TICKET_CREADO",
         notes: isHousekeeping ? "Reportado desde la aplicación móvil de limpieza" : "Reportado manualmente",
-        userId: session.user.id,
+        user: { connect: { id: session.user.id } },
       },
     },
   };
@@ -97,8 +98,7 @@ export async function POST(request: NextRequest) {
   if (severityBlocksRoom(severity)) {
     const [issue] = await prisma.$transaction([
       prisma.maintenanceIssue.create({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: issueData as any,
+        data: issueData,
         include: { room: { select: { number: true, floor: true } } },
       }),
       prisma.room.update({
@@ -110,8 +110,7 @@ export async function POST(request: NextRequest) {
   }
 
   const issue = await prisma.maintenanceIssue.create({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: issueData as any,
+    data: issueData,
     include: { room: { select: { number: true, floor: true } } },
   });
   
